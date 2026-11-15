@@ -6,6 +6,7 @@ Static website for Jos Tiebosch (darter from Beverwijk since 1983). Site text is
 - **Certificaten, Foto's, Knipsels** – images from the old site, de-duplicated and resized (`tools/build_media.py`)
 - **Mijn wedstrijden** – schedule, results, standings and personal stats of his DVK team (DC Sport 2.0)
 - **Darts live** – the darts tournament currently running, PDC rankings and news
+- **Statistieken / Analyse** – overview tables, and an interactive analysis page with filters (season, league/cup, home/away), form and 180 lines, leg-score distribution, deciding legs, month and partner breakdowns, head-to-head search, Jos vs his division and the whole DVK, and prize-list charts
 
 No build step, no server code. Open `index.html` directly, or host the folder on any static host.
 
@@ -15,6 +16,7 @@ No build step, no server code. Open `index.html` directly, or host the folder on
 |---|---|---|
 | Team schedule, results, standings, team history, cup matches of the Café Sport teams | `feeds.teambeheer.nl` (public pages of Dartvereniging Kennemerland, the same ones dartvk.nl embeds) | `tools/fetch_live.py`, run by GitHub Actions; writes `data/schedule.js` |
 | Every match and single/pair game since 2017-18 (Statistieken page, 180 chart) | Teambeheer player pages, one per season | same script; writes `data/stats.js` (finished seasons are cached, only the current one is refetched) |
+| Division and DVK-wide rankings per season (Analyse page): singles, 180s, highest finishes, fastest legs, teams per division | Teambeheer `scorelijst-pk`, `scorelijst-bijzres` and `stand` pages | same script; writes `data/division.js` (~600 KB, loaded only on the Analyse page; finished seasons cached) |
 | Calendar subscription | built from the schedule | same script; writes `data/wedstrijden.ics` (subscribe via `webcal://…/data/wedstrijden.ics`) |
 | DVK agenda (rankings, tournaments) | schema.org Event data on dartvk.nl/agenda | same script, inside `data/schedule.js` |
 | Timeline (cafés, milestones) | Jos's own story + the prize list | hand-written `data/timeline.js` |

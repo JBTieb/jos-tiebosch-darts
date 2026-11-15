@@ -425,6 +425,54 @@ def fetch_history():
             "playerName": CONFIG.get("player_name", ""), "seasons": out}
 
 
+# ---------------------------------------------------------------- division and DVK-wide rankings
+
+def _int(text):
+    m = re.search(r"\d+", text or "")
+    return int(m.group()) if m else 0
+
+
+def fetch_division(team_history):
+    """Per season: the teams in Jos's division and the DVK-wide player rankings
+    (singles, 180s, highest finishes, fastest legs). Finished seasons are cached in data/division.js."""
+    d = CONFIG["district"]
+    current = CONFIG.get("season") or current_season()
+    old = read_js(os.path.join(ROOT, "data", "division.js")) or {}
+    cached = old.get("seasons", {})
+    out = {}
+    for h in team_history:
+        s, code = h["season"], h["division"]
+        prev = cached.get(s)
+        if prev and (s != current or (prev.get("at") and
+                     (now_local() - dt.datetime.fromisoformat(prev["at"])).total_seconds() < 12 * 3600)):
+            out[s] = prev
+            continue
+        stand = get(f"{BASE}/web/stand?d={d}&s={s}&div={code}")
+        t = first_table(stand, ["Team", "Wed"])
+        teams = sorted({row[1]["text"] for row in (t or [])[1:] if len(row) > 1 and row[0]["text"].isdigit()})
+        pk = []
+        t = first_table(get(f"{BASE}/web/scorelijst-pk/?d={d}&s={s}"), ["Speler", "Singles", "Voor", "Tegen"])
+        for row in (t or [])[1:]:
+            c = [x["text"] for x in row]
+            if len(c) >= 7 and _int(c[3]) >= 3:
+                win = re.search(r"[\d.]+", c[6])
+                pk.append([c[1], c[2], _int(c[3]), _int(c[4]), _int(c[5]), float(win.group()) if win else 0.0])
+        lists = {}
+        for key, tt in (("s180", 1), ("fin", 2), ("fast", 3)):
+            t = first_table(get(f"{BASE}/web/scorelijst-bijzres/?d={d}&s={s}&t={tt}"), ["Speler", "Team", "Hoeveel"])
+            rows = []
+            for row in (t or [])[1:]:
+                c = [x["text"] for x in row]
+                if len(c) >= 4:
+                    rows.append([c[1], c[2], _int(c[-1])])
+            lists[key] = rows
+        if not pk and not lists["s180"]:
+            continue  # e.g. 2020-21: no competition (corona)
+        out[s] = {"at": now_local().isoformat(timespec="minutes"), "division": code, "teams": teams, "pk": pk, **lists}
+    return {"fetchedAt": now_local().isoformat(timespec="minutes"), "player": CONFIG.get("player_name", ""),
+            "seasons": out}
+
+
 # ---------------------------------------------------------------- calendar subscription (.ics)
 
 def ics_escape(text):
@@ -614,6 +662,10 @@ def main():
         stats = safe(fetch_history, None, "history")
         if stats and stats["seasons"]:
             write_js("stats.js", "STATS", stats, refresh_hours=24)
+        history = (read_js(os.path.join(ROOT, "data", "schedule.js")) or {}).get("teamHistory", [])
+        division = safe(lambda: fetch_division(history), None, "division")
+        if division and division["seasons"]:
+            write_js("division.js", "DIVISION", division, refresh_hours=24)
     if not args or "--news" in args:
         write_js("news.js", "NEWS", fetch_news())
     sys.exit(0 if ok else 1)

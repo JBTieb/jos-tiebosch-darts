@@ -894,6 +894,7 @@
     const opp = (m) => `${esc(m.opponent)}, ${esc(shortDate(m.date))}`;
 
     return `
+      ${statTabs("overzicht")}
       <div class="page-head">
         <div class="eyebrow">Voor de liefhebber</div>
         <h1>Statistieken</h1>
@@ -1003,6 +1004,369 @@
         document.querySelectorAll(`#${table} tbody tr`).forEach((tr) => { tr.hidden = q && !tr.dataset.q.includes(q); });
       });
     });
+  }
+
+  // ------------------------------------------------------------ analysis page (interactive)
+  // Chart colours: validated categorical slots (blue, orange, aqua) on the dark surface; single series use the accent.
+  const C1 = "#3987e5", C2 = "#d95926", C3 = "#199e70", CA = "var(--accent)";
+  const RAMP = ["#e3b450", "#b8862f", "#8a6424", "#5c4a33"];  // ordinal: 1st, 2nd, 3rd, other places
+  let DIVISION = window.DIVISION || null;
+  const loadDivision = () => (DIVISION ? Promise.resolve(DIVISION) : new Promise((res) => {
+    const s = document.createElement("script");
+    s.src = `data/division.js?v=${encodeURIComponent(STATS?.fetchedAt || "")}`;
+    s.onload = () => { DIVISION = window.DIVISION || null; res(DIVISION); };
+    s.onerror = () => res(null);
+    document.head.appendChild(s);
+  }));
+
+  // Tooltip: any element with data-tip shows it on hover (mouse) or tap (touch).
+  const tip = document.createElement("div");
+  tip.className = "tip"; tip.hidden = true; document.body.appendChild(tip);
+  const showTip = (text, x, y) => {
+    tip.innerHTML = text; tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    tip.style.left = `${Math.min(Math.max(8, x - r.width / 2), innerWidth - r.width - 8)}px`;
+    tip.style.top = `${Math.max(8, y - r.height - 14)}px`;
+  };
+  document.addEventListener("mouseover", (e) => { const t = e.target.closest("[data-tip]"); if (t) { const b = t.getBoundingClientRect(); showTip(t.dataset.tip, b.left + b.width / 2, b.top); } });
+  document.addEventListener("mouseout", (e) => { if (e.target.closest("[data-tip]")) tip.hidden = true; });
+  document.addEventListener("click", (e) => { const t = e.target.closest("[data-tip]"); if (t) { const b = t.getBoundingClientRect(); showTip(t.dataset.tip, b.left + b.width / 2, b.top); } else if (!e.target.closest(".line-chart")) tip.hidden = true; });
+  addEventListener("scroll", () => { tip.hidden = true; }, { passive: true });
+
+  // Vertical bar chart (HTML). items: {label, segs:[{v,color,tip}]} or {label, v, color, tip}
+  function vbars(items, { height = 170, every = 1, max = null, show = true } = {}) {
+    const total = (i) => (i.segs ? i.segs.reduce((s, x) => s + x.v, 0) : i.v);
+    const top = max ?? Math.max(1, ...items.map(total));
+    return `<div class="vbars" style="--n:${items.length};height:${height}px">${items.map((i) => {
+      const segs = i.segs || [{ v: i.v, color: i.color || CA, tip: i.tip }];
+      return `<div class="vcol" data-tip="${esc(i.tip || segs.map((s) => s.tip).filter(Boolean).join("<br>") || `${i.label}: ${total(i)}`)}">
+        ${show && total(i) ? `<span class="vval">${esc(i.show ?? total(i))}</span>` : ""}
+        ${segs.filter((s) => s.v > 0).map((s) => `<div class="vseg" style="height:${(s.v / top) * 100}%;background:${s.color}"></div>`).join("")}
+      </div>`;
+    }).join("")}</div>
+    <div class="vlabels" style="--n:${items.length}">${items.map((i, n) => `<div>${n % every ? "" : esc(i.label)}</div>`).join("")}</div>`;
+  }
+
+  // Horizontal bars, good for rankings: rows {label, v, tip, hi}
+  const hbars = (rows, { max = null, fmt = (v) => v } = {}) => {
+    const top = max ?? Math.max(1, ...rows.map((r) => r.v));
+    return `<div class="hbars">${rows.map((r) => `<div class="hrow ${r.hi ? "hi" : ""}" data-tip="${esc(r.tip || `${r.label}: ${fmt(r.v)}`)}">
+      <div class="hlab">${esc(r.label)}</div><div class="htrack"><div class="hbar" style="width:${(r.v / top) * 100}%;background:${r.color || (r.hi ? C1 : "color-mix(in srgb, var(--muted) 55%, transparent)")}"></div></div>
+      <div class="hval">${esc(fmt(r.v))}</div></div>`).join("")}</div>`;
+  };
+
+  // Line chart (SVG) with crosshair tooltip. series: [{name, color, values:[number|null]}], tips: [html per x]
+  const LINE_CHARTS = {};
+  function lineChart(id, series, tips, { height = 200, yMax = null, yMin = 0, unit = "", xLabels = [] } = {}) {
+    const n = Math.max(...series.map((s) => s.values.length));
+    const hi = yMax ?? Math.max(1, ...series.flatMap((s) => s.values.filter((v) => v != null)));
+    const W = 1000, H = 300, x = (i) => (n <= 1 ? W / 2 : (i / (n - 1)) * W), y = (v) => H - ((v - yMin) / (hi - yMin)) * H;
+    LINE_CHARTS[id] = { n, tips, series, x, y, W, H };
+    const paths = series.map((s) => {
+      let d = "", pen = false;
+      s.values.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
+      return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+    }).join("");
+    const grid = [0.25, 0.5, 0.75, 1].map((f) => `<line x1="0" x2="${W}" y1="${y(yMin + (hi - yMin) * f)}" y2="${y(yMin + (hi - yMin) * f)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join("");
+    return `<div class="line-chart" data-chart="${id}">
+      <div class="ly">${[1, 0.5, 0].map((f) => `<span>${Math.round(yMin + (hi - yMin) * f)}${unit}</span>`).join("")}</div>
+      <div class="lplot" style="height:${height}px">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${grid}${paths}<line class="cross" x1="0" x2="0" y1="0" y2="${H}" stroke="var(--muted)" stroke-width="1" vector-effect="non-scaling-stroke" visibility="hidden"/></svg>
+        ${series.map((s, k) => `<i class="dot" data-k="${k}" style="background:${s.color}"></i>`).join("")}
+      </div>
+      ${xLabels.length ? `<div class="lx">${xLabels.map((t) => `<span style="left:${n <= 1 ? 50 : (t.i / (n - 1)) * 100}%">${esc(t.label)}</span>`).join("")}</div>` : ""}
+      ${series.length > 1 ? `<div class="legend">${series.map((s) => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("")}</div>` : ""}
+    </div>`;
+  }
+  function bindLineCharts(root) {
+    root.querySelectorAll(".line-chart").forEach((el) => {
+      const c = LINE_CHARTS[el.dataset.chart];
+      const plot = el.querySelector(".lplot"), cross = el.querySelector(".cross"), dots = el.querySelectorAll(".dot");
+      if (!c) return;
+      const move = (clientX) => {
+        const r = plot.getBoundingClientRect();
+        const i = Math.round(Math.min(Math.max(0, (clientX - r.left) / r.width), 1) * (c.n - 1));
+        const px = (c.x(i) / c.W) * r.width;
+        cross.setAttribute("x1", c.x(i)); cross.setAttribute("x2", c.x(i)); cross.setAttribute("visibility", "visible");
+        dots.forEach((d) => {
+          const v = c.series[d.dataset.k].values[i];
+          d.style.display = v == null ? "none" : "block";
+          if (v != null) { d.style.left = `${px}px`; d.style.top = `${(c.y(v) / c.H) * r.height}px`; }
+        });
+        showTip(c.tips[i] || "", r.left + px, r.top + 4);
+      };
+      plot.addEventListener("mousemove", (e) => move(e.clientX));
+      plot.addEventListener("touchmove", (e) => { move(e.touches[0].clientX); }, { passive: true });
+      plot.addEventListener("click", (e) => move(e.clientX));
+      plot.addEventListener("mouseleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dots.forEach((d) => { d.style.display = "none"; }); });
+    });
+  }
+
+  const statTabs = (active) => `<div class="tabs" role="tablist">
+    <a href="#/statistieken" role="tab" aria-selected="${active === "overzicht"}">Overzicht</a>
+    <a href="#/analyse" role="tab" aria-selected="${active === "analyse"}">Analyse</a></div>`;
+
+  const AN = { season: "all", kind: "all", side: "all", tag: "all" };
+  const MONTH_ORDER = [8, 9, 10, 11, 0, 1, 2, 3, 4];  // aug..mei (season order)
+
+  function pageAnalyse() {
+    if (!STATS) return `${statTabs("analyse")}<div class="notice">De gegevens voor de analyse worden bij de volgende update geladen.</div>`;
+    const seasons = [...STATS.seasons].map((s) => s.season).sort().reverse();
+    const sel = (name, opts) => `<label class="flt"><span>${name}</span><select data-f="${name === "Seizoen" ? "season" : name === "Soort" ? "kind" : "side"}">
+      ${opts.map(([v, l]) => `<option value="${v}" ${AN[name === "Seizoen" ? "season" : name === "Soort" ? "kind" : "side"] === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>`;
+    return `${statTabs("analyse")}
+      <div class="page-head">
+        <div class="eyebrow">Duik in de cijfers</div>
+        <h1>Analyse</h1>
+        <p>Alle partijen sinds 2017-2018, de ranglijsten van de dartvereniging en de erelijst. Kies hieronder een seizoen of soort wedstrijd:
+          alle grafieken passen zich aan. Beweeg over een grafiek (of tik erop) voor de details.</p>
+      </div>
+      <div class="filters">
+        ${sel("Seizoen", [["all", "Alle seizoenen"], ...seasons.map((s) => [s, seasonLabel(s)])])}
+        ${sel("Soort", [["all", "Competitie en beker"], ["league", "Alleen competitie"], ["cup", "Alleen beker"]])}
+        ${sel("Waar", [["all", "Thuis en uit"], ["home", "Alleen thuis"], ["away", "Alleen uit"]])}
+      </div>
+      <div id="an-body"></div>
+      <section class="section" id="an-division"><h2>Jos tegenover de rest</h2><p class="loading">Ranglijsten laden…</p></section>
+      <section class="section" id="an-prizes"></section>`;
+  }
+
+  function filteredMatches() {
+    return allMatches().filter((m) => (AN.season === "all" || m.season === AN.season)
+      && (AN.kind === "all" || (AN.kind === "cup" ? !!m.cup : !m.cup))
+      && (AN.side === "all" || m.side === AN.side));
+  }
+
+  function renderAnalyseBody() {
+    const body = document.getElementById("an-body");
+    if (!body) return;
+    const ms = filteredMatches();
+    if (!ms.length) { body.innerHTML = `<div class="notice">Geen wedstrijden met deze keuze.</div>`; return; }
+    const s = summarize(ms);
+    const singles = ms.flatMap((m) => m.games.filter((g) => g.type === "single").map((g) => ({ g, m })));
+    const pairs = ms.flatMap((m) => m.games.filter((g) => g.type === "pair").map((g) => ({ g, m })));
+    const finAll = ms.flatMap((m) => finishes(m.finish).map((f) => ({ f, m })));
+    const sls = ms.filter((m) => /^\d+$/.test(m.sl || "")).map((m) => ({ d: Number(m.sl), m }));
+    const fastest = sls.reduce((a, b) => (!a || b.d < a.d ? b : a), null);
+    const decider = (g) => { const [f, a] = legsOf(g); return Math.abs(f - a) === 1 && Math.max(f, a) >= 3; };
+    const decS = singles.filter(({ g }) => decider(g)), decP = pairs.filter(({ g }) => decider(g));
+    const wl = (list) => [list.filter(({ g }) => g.result === "W").length, list.filter(({ g }) => g.result === "V").length];
+    const [dsw, dsl] = wl(decS), [dpw, dpl] = wl(decP);
+    const gamesWonPerMatch = (s.sW + s.pW) / ms.length;
+
+    // form line: rolling % of the last 10 singles, and cumulative 180s
+    const form = singles.map((_, i) => { const w = singles.slice(Math.max(0, i - 9), i + 1); return Math.round((100 * w.filter((x) => x.g.result === "W").length) / w.length); });
+    const formTips = singles.map(({ g, m }, i) => `<b>${esc(shortDate(m.date))}</b> tegen ${esc(g.opponents[0] || "")}<br>${g.result === "W" ? "gewonnen" : "verloren"} ${esc(g.legs)}<br>vorm (laatste 10): <b>${form[i]}%</b>`);
+    let cum = 0;
+    const cum180 = ms.map((m) => (cum += m.n180 || 0));
+    const cumTips = ms.map((m, i) => `<b>${esc(shortDate(m.date))}</b> ${esc(m.home)} – ${esc(m.away)}<br>${m.n180 || 0}× 180 in deze wedstrijd<br>totaal: <b>${cum180[i]}</b>`);
+    // x-axis ticks at the first match of every season: [{i, label}]
+    const seasonTicks = (list) => { const seen = new Set(); return list.flatMap(({ m }, i) => (seen.has(m.season) ? [] : (seen.add(m.season), [{ i, label: `'${m.season.slice(0, 2)}` }]))); };
+
+    // leg score distribution (singles), best result first
+    const dist = {};
+    singles.forEach(({ g }) => { if (/^\d+-\d+$/.test(g.legs)) dist[g.legs] = (dist[g.legs] || 0) + 1; });
+    const distKey = (k) => { const [f, a] = k.split("-").map(Number); return f > a ? [0, -f, a] : [1, a, -f]; };  // wins first (4-0..3-2), then losses (2-3..0-4)
+    const distItems = Object.keys(dist).sort((x, y) => { const a = distKey(x), b = distKey(y); return a[0] - b[0] || a[1] - b[1] || a[2] - b[2]; })
+      .map((k) => { const [f, a] = k.split("-").map(Number); return { label: k, v: dist[k], color: f > a ? C1 : C2, tip: `${k}: ${dist[k]}× (${f > a ? "gewonnen" : "verloren"})` }; });
+
+    // by month of the season
+    const byMonth = MONTH_ORDER.map((mo) => { const list = singles.filter(({ m }) => parseISO(m.date).getMonth() === mo); const [w, l] = wl(list); return { mo, w, l }; }).filter((x) => x.w + x.l);
+    const monthItems = byMonth.map(({ mo, w, l }) => ({ label: MONTHS[mo].slice(0, 3), v: pct(w, l), show: `${pct(w, l)}%`, color: CA, tip: `${MONTHS[mo]}: ${w}-${l} in singles (${pct(w, l)}%)` }));
+
+    // results strip (team result per match)
+    const strip = ms.map((m) => `<i class="rs ${m.teamResult || ""}" data-tip="<b>${esc(shortDate(m.date))}</b> ${esc(m.home)} – ${esc(m.away)} <b>${esc(m.score)}</b>${m.cup ? " (beker)" : ""}<br>Jos: ${m.games.map((g) => (g.type === "single" ? "S" : "K") + (g.result || "?")).join(" ")}${m.n180 ? `, ${m.n180}× 180` : ""}"></i>`).join("");
+
+    // partners and short legs
+    const partners = {};
+    pairs.forEach(({ g }) => g.partners.forEach((p) => { const x = (partners[p] ||= { w: 0, l: 0 }); if (g.result === "W") x.w++; else if (g.result === "V") x.l++; }));
+    const partnerRows = Object.entries(partners).filter(([, x]) => x.w + x.l >= 3).sort((a, b) => b[1].w + b[1].l - (a[1].w + a[1].l)).slice(0, 8)
+      .map(([n, x]) => ({ label: n, v: pct(x.w, x.l), tip: `met ${n}: ${x.w}-${x.l} (${pct(x.w, x.l)}%)`, color: C3 }));
+    const slCount = {};
+    sls.forEach(({ d }) => { slCount[d] = (slCount[d] || 0) + 1; });
+
+    body.innerHTML = `
+      <div class="stats kpis">
+        <div class="stat"><b>${ms.length}</b><span>wedstrijden (${s.tW}-${s.tG}-${s.tV} voor het team)</span></div>
+        <div class="stat"><b>${pct(s.sW, s.sV)}%</b><span>singles gewonnen (${s.sW}-${s.sV})</span></div>
+        <div class="stat"><b>${pct(s.lf, s.la)}%</b><span>van de legs in singles (${s.lf}-${s.la})</span></div>
+        <div class="stat"><b>${pct(s.pW, s.pV)}%</b><span>koppels gewonnen (${s.pW}-${s.pV})</span></div>
+        <div class="stat"><b>${s.n180}</b><span>keer 180 (${(s.n180 / ms.length).toFixed(2).replace(".", ",")} per wedstrijd)</span></div>
+        <div class="stat"><b>${finAll.length}</b><span>finishes van 100+ (hoogste ${s.best || "–"})</span></div>
+        <div class="stat"><b>${fastest ? fastest.d : "–"}</b><span>darts: snelste leg${fastest ? ` (${esc(shortDate(fastest.m.date))})` : ""}</span></div>
+        <div class="stat"><b>${gamesWonPerMatch.toFixed(1).replace(".", ",")}</b><span>punten per wedstrijd voor het team</span></div>
+      </div>
+
+      <div class="card"><h3>Alle wedstrijden op een rij</h3>
+        <p class="muted small">Elk vakje is een wedstrijd van het team: <span class="rs-key W"></span> gewonnen, <span class="rs-key G"></span> gelijk, <span class="rs-key V"></span> verloren. Beweeg erover voor Jos' partijen (S = single, K = koppel).</p>
+        <div class="strip">${strip}</div></div>
+
+      <div class="grid grid-2" style="margin-top:18px">
+        <div class="card"><h3>Vorm in de singles</h3><p class="muted small">Percentage gewonnen van de laatste 10 singles, partij na partij.</p>
+          ${singles.length ? lineChart("form", [{ name: "Vorm", color: CA, values: form }], formTips, { yMax: 100, unit: "%", xLabels: seasonTicks(singles) }) : "<p>Geen singles.</p>"}</div>
+        <div class="card"><h3>180's opgeteld</h3><p class="muted small">Het totaal groeit met elke wedstrijd.</p>
+          ${lineChart("cum180", [{ name: "180's", color: C1, values: cum180 }], cumTips, { xLabels: seasonTicks(ms.map((m) => ({ m }))) })}</div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:18px;align-items:start">
+        <div class="card"><h3>Uitslagen van zijn singles</h3><p class="muted small">Hoe vaak elke legstand voorkwam. <span class="key" style="--c:${C1}">gewonnen</span> <span class="key" style="--c:${C2}">verloren</span></p>
+          ${vbars(distItems)}
+          <p style="margin-top:12px"><b>In de beslissende leg:</b> singles ${dsw}-${dsl} (${pct(dsw, dsl)}%), koppels ${dpw}-${dpl} (${pct(dpw, dpl)}%).</p></div>
+        <div class="card"><h3>Per maand</h3><p class="muted small">Percentage singles gewonnen per maand van het seizoen.</p>
+          ${monthItems.length ? vbars(monthItems, { max: 100 }) : "<p>Te weinig gegevens.</p>"}
+          ${monthItems.length ? `<p style="margin-top:12px">Sterkste maand (minstens 8 singles): <b>${(() => { const ok = byMonth.filter((x) => x.w + x.l >= 8); return ok.length ? esc(MONTHS[ok.reduce((a, b) => (pct(b.w, b.l) > pct(a.w, a.l) ? b : a)).mo]) : "nog niet te zeggen"; })()}</b>.</p>` : ""}</div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:18px;align-items:start">
+        <div class="card"><h3>Koppels per partner</h3><p class="muted small">Percentage gewonnen, partners met minstens 3 koppels.</p>
+          ${partnerRows.length ? hbars(partnerRows, { max: 100, fmt: (v) => `${v}%` }) : "<p>Te weinig koppels.</p>"}</div>
+        <div class="card"><h3>Snelle legs en hoge finishes</h3>
+          <p class="muted small">Legs van 15 darts of minder, en finishes van 100 of hoger.</p>
+          ${Object.keys(slCount).length ? hbars(Object.keys(slCount).sort((a, b) => a - b).map((d) => ({ label: `${d} darts`, v: slCount[d], color: C1, tip: `${slCount[d]}× een leg in ${d} darts` }))) : "<p>Geen snelle legs genoteerd.</p>"}
+          <div style="margin-top:14px">${hbars([[100, 119], [120, 139], [140, 159], [160, 170]].map(([a, b]) => ({ label: `${a}-${b}`, v: finAll.filter(({ f }) => f >= a && f <= b).length, color: C3, tip: `${finAll.filter(({ f }) => f >= a && f <= b).length}× een finish tussen ${a} en ${b}` })))}</div></div>
+      </div>
+
+      <section class="section card">
+        <h3>Onderling: zoek een tegenstander</h3>
+        <input class="search" id="h2h" list="h2h-list" placeholder="Typ een naam of team, bijvoorbeeld Carrou-Hell" aria-label="Zoek een tegenstander">
+        <datalist id="h2h-list">${[...new Set(singles.flatMap(({ g }) => g.opponents).concat(ms.map((m) => m.opponent)))].sort().map((n) => `<option value="${esc(n)}">`).join("")}</datalist>
+        <div id="h2h-out" style="margin-top:12px"><p class="muted">Alle partijen tegen die speler of dat team verschijnen hier.</p></div>
+      </section>`;
+    bindLineCharts(body);
+    const input = document.getElementById("h2h");
+    input.addEventListener("input", () => {
+      const q = input.value.trim().toLowerCase();
+      const out = document.getElementById("h2h-out");
+      if (q.length < 3) { out.innerHTML = `<p class="muted">Typ minstens drie letters.</p>`; return; }
+      const games = ms.flatMap((m) => m.games.filter((g) => m.opponent.toLowerCase().includes(q) || g.opponents.some((o) => o.toLowerCase().includes(q))).map((g) => ({ g, m })));
+      const [w, l] = wl(games);
+      out.innerHTML = games.length ? `<p><b>${games.length} partijen: ${w} gewonnen, ${l} verloren (${pct(w, l)}%).</b></p>
+        <div class="table-wrap" style="max-height:420px;overflow:auto"><table class="data"><thead><tr><th>Datum</th><th>Soort</th><th>Tegen</th><th>Met</th><th class="num">Legs</th><th></th></tr></thead><tbody>
+        ${games.reverse().map(({ g, m }) => `<tr><td>${esc(shortDate(m.date))}</td><td>${g.type === "single" ? "single" : "koppel"}</td><td>${esc(g.opponents.join(" & "))}<br><span class="muted small">${esc(m.opponent)}</span></td>
+          <td>${esc(g.partners.join(", "))}</td><td class="num">${esc(g.legs)}</td><td>${g.result ? `<span class="res ${g.result}">${g.result}</span>` : ""}</td></tr>`).join("")}
+        </tbody></table></div>` : `<p>Geen partijen gevonden.</p>`;
+    });
+  }
+
+  function divisionRows(div) {
+    const me = STATS?.playerName || SITE.name || "Jos Tiebosch";
+    return Object.entries(div.seasons).sort().map(([season, v]) => {
+      const peers = (rows) => rows.filter((r) => v.teams.includes(r[1]));
+      const rankBy = (rows, val, asc = false) => {
+        const mine = rows.find((r) => r[0] === me);
+        if (!mine) return null;
+        const better = rows.filter((r) => (asc ? val(r) < val(mine) : val(r) > val(mine))).length;
+        return { rank: better + 1, of: rows.length, val: val(mine), pctl: rows.length > 1 ? Math.round((100 * (rows.length - better - 1)) / (rows.length - 1)) : 100, leader: [...rows].sort((a, b) => (asc ? val(a) - val(b) : val(b) - val(a)))[0] };
+      };
+      const minS = (rows) => { const mine = rows.find((r) => r[0] === me); return Math.max(5, Math.round((mine ? mine[2] : 10) / 2)); };
+      // rows: [name, team, singles, legsFor, legsAgainst, win%]; rank on win%, ties broken by share of legs won
+      const pkVal = (r) => (r[5] || 0) + r[3] / Math.max(1, r[3] + r[4]) / 100;
+      const divPk = peers(v.pk).filter((r) => r[2] >= minS(v.pk));
+      const dvkPk = v.pk.filter((r) => r[2] >= minS(v.pk));
+      return {
+        season, division: v.division,
+        legsDiv: rankBy(divPk, pkVal), legsDvk: rankBy(dvkPk, pkVal),
+        s180Div: rankBy(peers(v.s180), (r) => r[2]), s180Dvk: rankBy(v.s180, (r) => r[2]),
+        finDiv: rankBy(peers(v.fin), (r) => r[2]), fastDiv: rankBy(peers(v.fast), (r) => r[2], true),
+        raw: v,
+      };
+    });
+  }
+
+  function renderDivision() {
+    const box = document.getElementById("an-division");
+    if (!box) return;
+    loadDivision().then((div) => {
+      if (!document.getElementById("an-division")) return;
+      if (!div) { box.innerHTML = `<h2>Jos tegenover de rest</h2><p>De ranglijsten konden niet worden geladen.</p>`; return; }
+      let rows = divisionRows(div);
+      if (AN.season !== "all") rows = rows.filter((r) => r.season === AN.season);
+      if (!rows.length) { box.innerHTML = `<h2>Jos tegenover de rest</h2><p>Geen ranglijst voor dit seizoen.</p>`; return; }
+      const divName = (c) => (c === "Ere" ? "Eredivisie" : c === "E1" ? "Eredivisie (1e helft)" : c);
+      const cell = (r) => (r ? `<b>${r.rank}e</b> <span class="muted small">van ${r.of}</span>` : "–");
+      const latest = rows[rows.length - 1];
+      const me = STATS?.playerName || "Jos Tiebosch";
+      const top = (list, asc = false) => list.filter((r) => latest.raw.teams.includes(r[1])).sort((a, b) => (asc ? a[2] - b[2] : b[2] - a[2])).slice(0, 10);
+      const top180 = top(latest.raw.s180);
+      if (!top180.some((r) => r[0] === me)) { const mine = latest.raw.s180.find((r) => r[0] === me); if (mine) top180.push(mine); }
+      box.innerHTML = `
+        <h2>Jos tegenover de rest</h2>
+        <p>Uit de ranglijsten van de dartvereniging: hoe Jos het doet tegenover alle spelers in zijn divisie en in heel de DVK (alle divisies).
+          Bij de singles tellen alleen spelers mee die minstens half zoveel singles speelden als Jos (minimaal 5).</p>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Seizoen</th><th>Divisie</th><th class="num">Singles gewonnen</th><th>Plek in divisie</th><th>Plek in DVK</th><th class="num">180's</th><th>Plek 180's divisie</th><th>Plek 180's DVK</th><th class="num">Snelste leg</th></tr></thead>
+          <tbody>${[...rows].reverse().map((r) => `<tr><td>${esc(seasonLabel(r.season))}</td><td>${esc(divName(r.division))}</td>
+            <td class="num">${r.legsDiv ? Math.floor(r.legsDiv.val) + "%" : "–"}</td><td>${cell(r.legsDiv)}</td><td>${cell(r.legsDvk)}</td>
+            <td class="num">${r.s180Div ? r.s180Div.val : "–"}</td><td>${cell(r.s180Div)}</td><td>${cell(r.s180Dvk)}</td>
+            <td class="num">${r.fastDiv ? r.fastDiv.val + " darts" : "–"}</td></tr>`).join("")}</tbody></table></div>
+
+        ${rows.length > 1 ? `<div class="grid grid-2" style="margin-top:18px">
+          <div class="card"><h3>Beter dan …% van de divisie (singles)</h3><p class="muted small">100% = de beste van de divisie.</p>
+            ${vbars(rows.map((r) => ({ label: `'${r.season.slice(0, 2)}`, v: r.legsDiv ? r.legsDiv.pctl : 0, show: r.legsDiv ? `${r.legsDiv.pctl}%` : "", color: C1, tip: r.legsDiv ? `${seasonLabel(r.season)}: ${r.legsDiv.rank}e van ${r.legsDiv.of} spelers` : "geen gegevens" })), { max: 100 })}</div>
+          <div class="card"><h3>Beter dan …% van de divisie (180's)</h3><p class="muted small">Vergeleken met alle spelers die een 180 gooiden.</p>
+            ${vbars(rows.map((r) => ({ label: `'${r.season.slice(0, 2)}`, v: r.s180Div ? r.s180Div.pctl : 0, show: r.s180Div ? `${r.s180Div.pctl}%` : "", color: C3, tip: r.s180Div ? `${seasonLabel(r.season)}: ${r.s180Div.val}× 180, ${r.s180Div.rank}e van ${r.s180Div.of}` : "geen gegevens" })), { max: 100 })}</div>
+        </div>` : ""}
+
+        <div class="card" style="margin-top:18px"><h3>Meeste 180's in de ${esc(divName(latest.division))}, ${esc(seasonLabel(latest.season))}</h3>
+          ${hbars(top180.map((r) => ({ label: `${r[0]} · ${r[1]}`, v: r[2], hi: r[0] === me, tip: `${r[0]} (${r[1]}): ${r[2]}× 180` })))}
+          <p class="muted small">Jos staat in blauw.</p></div>`;
+    });
+  }
+
+  function renderPrizeAnalysis() {
+    const box = document.getElementById("an-prizes");
+    if (!box) return;
+    const list = PRIZES.filter((p) => AN.tag === "all" || (AN.tag === "p1" ? p.place === 1 : p.tags.includes(AN.tag)));
+    const y0 = Number(PRIZES[0].date.slice(0, 4)), y1 = Number(PRIZES[PRIZES.length - 1].date.slice(0, 4));
+    const yearItems = [];
+    for (let y = y0; y <= y1; y++) {
+      const ys = list.filter((p) => Number(p.date.slice(0, 4)) === y);
+      const c = [1, 2, 3].map((n) => ys.filter((p) => p.place === n).length); const other = ys.length - c[0] - c[1] - c[2];
+      yearItems.push({ label: `'${String(y).slice(2)}`, segs: [
+        { v: c[0], color: RAMP[0] }, { v: c[1], color: RAMP[1] }, { v: c[2], color: RAMP[2] }, { v: other, color: RAMP[3] }],
+        tip: `<b>${y}</b>: ${ys.length} prijzen<br>1e: ${c[0]} · 2e: ${c[1]} · 3e: ${c[2]}${other ? ` · lager: ${other}` : ""}` });
+    }
+    const yearsAxis = [];
+    for (let y = y0; y <= y1; y++) yearsAxis.push(y);
+    let run = 0, runFirst = 0;
+    const cumVals = [], cumFirst = [], cumTips = [];
+    yearsAxis.forEach((y) => {
+      const ys = list.filter((p) => Number(p.date.slice(0, 4)) === y);
+      run += ys.length; runFirst += ys.filter((p) => p.place === 1).length;
+      cumVals.push(run); cumFirst.push(runFirst);
+      cumTips.push(`<b>${y}</b>: ${ys.length} prijzen dit jaar<br>totaal: <b>${run}</b> prijzen, waarvan ${runFirst}× eerste`);
+    });
+    const months = MONTHS.map((m, i) => { const n = list.filter((p) => parseISO(p.date).getMonth() === i); return { label: m.slice(0, 3), v: n.length, color: CA, tip: `${m}: ${n.length} prijzen, ${n.filter((p) => p.place === 1).length}× eerste` }; });
+    const days = [1, 2, 3, 4, 5, 6, 0].map((d) => { const n = list.filter((p) => parseISO(p.date).getDay() === d); return { label: DAYS[d].slice(0, 2), v: n.length, color: C1, tip: `${DAYS[d]}: ${n.length} prijzen` }; });
+    const tagCount = (k) => (k === "all" ? PRIZES.length : k === "p1" ? firsts.length : PRIZES.filter((p) => p.tags.includes(k)).length);
+    box.innerHTML = `
+      <h2>De erelijst geanalyseerd</h2>
+      <div class="chips" role="group" aria-label="Filter op soort prijs">
+        ${TAGS.filter(([k]) => tagCount(k)).map(([k, label]) => `<button class="chip" data-tag="${k}" aria-pressed="${AN.tag === k}">${label}<span class="n">${tagCount(k)}</span></button>`).join("")}
+      </div>
+      <div class="card"><h3>Prijzen per jaar</h3>
+        <p class="muted small"><span class="key" style="--c:${RAMP[0]}">1e</span> <span class="key" style="--c:${RAMP[1]}">2e</span> <span class="key" style="--c:${RAMP[2]}">3e</span> <span class="key" style="--c:${RAMP[3]}">lager</span> · tussen 2012 en 2015 ontbreken gegevens.</p>
+        ${vbars(yearItems, { every: 4, show: false })}</div>
+      <div class="card" style="margin-top:18px"><h3>Prijzen opgeteld sinds ${y0}</h3>
+        ${list.length ? lineChart("cumprize", [{ name: "Alle prijzen", color: C1, values: cumVals }, { name: "Eerste prijzen", color: C2, values: cumFirst }], cumTips, { xLabels: yearsAxis.map((y, i) => ({ i, label: String(y) })).filter((t) => Number(t.label) % 5 === 0) }) : "<p>Geen prijzen.</p>"}
+        <p class="muted small">Tussen 2012 en 2015 ontbreken gegevens, daar loopt de lijn vlak.</p></div>
+      <div class="grid grid-2" style="margin-top:18px">
+        <div class="card"><h3>In welke maand</h3>${vbars(months)}</div>
+        <div class="card"><h3>Op welke dag</h3>${vbars(days)}<p class="muted small">De meeste toernooien waren in het weekend.</p></div>
+      </div>`;
+    bindLineCharts(box);
+    box.querySelectorAll("[data-tag]").forEach((b) => b.addEventListener("click", () => { AN.tag = b.dataset.tag; renderPrizeAnalysis(); }));
+  }
+
+  function afterAnalyse() {
+    document.querySelectorAll(".filters select").forEach((s) => s.addEventListener("change", () => {
+      AN[s.dataset.f] = s.value;
+      renderAnalyseBody();
+      renderDivision();
+    }));
+    renderAnalyseBody();
+    renderDivision();
+    renderPrizeAnalysis();
   }
 
   // ------------------------------------------------------------ timeline page
@@ -1134,6 +1498,7 @@
     "": [pageHome, afterHome],
     wedstrijden: [pageMatches, afterMatches],
     statistieken: [pageStats, afterStats],
+    analyse: [pageAnalyse, afterAnalyse],
     tijdlijn: [pageTimeline, afterTimeline],
     live: [pageLive, afterLive],
     erelijst: [pagePrizes, afterPrizes],
@@ -1161,14 +1526,15 @@
     main.innerHTML = html;
     if (after) after();
     const section = parts[0] || "";
+    const navSection = section === "analyse" ? "statistieken" : section;
     document.querySelectorAll(".nav a").forEach((a) => {
       const target = a.getAttribute("href").replace(/^#\/?/, "");
-      a.toggleAttribute("aria-current", target === section);
-      if (target === section) a.setAttribute("aria-current", "page");
+      a.toggleAttribute("aria-current", target === navSection);
+      if (target === navSection) a.setAttribute("aria-current", "page");
     });
     document.querySelector(".nav").classList.remove("open");
     document.querySelector(".menu-btn").setAttribute("aria-expanded", "false");
-    const titles = { "": "Darts", wedstrijden: "Mijn wedstrijden", live: "Darts live", statistieken: "Statistieken", tijdlijn: "Tijdlijn", erelijst: "Erelijst", certificaten: "Certificaten", fotos: "Foto's", knipsels: "Knipsels", over: "Over mij" };
+    const titles = { "": "Darts", wedstrijden: "Mijn wedstrijden", live: "Darts live", statistieken: "Statistieken", analyse: "Analyse", tijdlijn: "Tijdlijn", erelijst: "Erelijst", certificaten: "Certificaten", fotos: "Foto's", knipsels: "Knipsels", over: "Over mij" };
     document.title = `Jos Tiebosch · ${titles[section] || "Darts"}`;
     window.scrollTo(0, 0);
   }
