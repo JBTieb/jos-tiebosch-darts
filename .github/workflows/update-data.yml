@@ -24,17 +24,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch schedule (Teambeheer) and news (PDC, NOS, YouTube)
+      - name: Fetch schedule, cup, agenda, statistics (Teambeheer, dartvk.nl) and news (PDC, NOS, YouTube)
         run: python tools/fetch_live.py
 
       - name: Commit changed data
         run: |
-          if git diff --quiet -- data/; then
+          if [ -z "$(git status --porcelain -- data/)" ]; then
             echo "No changes."
             exit 0
           fi
           git config user.name "schedule-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/schedule.js data/news.js
-          git commit -m "Update schedule and news"
+          git add data/schedule.js data/news.js data/stats.js data/wedstrijden.ics
+          git commit -m "Update schedule, statistics and news"
           git push

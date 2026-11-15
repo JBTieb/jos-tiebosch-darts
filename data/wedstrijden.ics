@@ -1,0 +1,340 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//jos-tiebosch-darts//NL
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Darten DC Sport 2.0
+X-WR-TIMEZONE:Europe/Amsterdam
+REFRESH-INTERVAL;VALUE=DURATION:PT6H
+X-PUBLISHED-TTL:PT6H
+BEGIN:VEVENT
+UID:26-27-competitie-1@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20260925T180000Z
+DTEND:20260925T210000Z
+SUMMARY:Darten: 't Ken toch niet weg zijn - DC Sport 2.0 (uit)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-2@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261002T180000Z
+DTEND:20261002T210000Z
+SUMMARY:Darten: DC Sport 2.0 - Carrou-Hell (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-4@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261023T180000Z
+DTEND:20261023T210000Z
+SUMMARY:Darten: DC Sport 2.0 - Bijna gezellig (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-5@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261030T190000Z
+DTEND:20261030T220000Z
+SUMMARY:Darten: 2 Enjoy 1 - DC Sport 2.0 (uit)
+LOCATION:Café 2 Enjoy\, Maerten van Heemskerckstraat 12\, Heemskerk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-6@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261106T190000Z
+DTEND:20261106T220000Z
+SUMMARY:Darten: DC Sport 2.0 - Op het nippertje (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-7@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261119T190000Z
+DTEND:20261119T220000Z
+SUMMARY:Darten: Zeewegbar Owls - DC Sport 2.0 (uit)
+LOCATION:Zeewegbar\, Zeeweg 149\, IJmuiden
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-8@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261127T190000Z
+DTEND:20261127T220000Z
+SUMMARY:Darten: Flierefluiters - DC Sport 2.0 (uit)
+LOCATION:VV Schoten Softbal\, van der Aartsportpark 2\, Haarlem
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-9@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261204T190000Z
+DTEND:20261204T220000Z
+SUMMARY:Darten: DC Sport 2.0 - Sport 1 (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-10@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20261211T190000Z
+DTEND:20261211T220000Z
+SUMMARY:Darten: Dartvoort aan Zee - DC Sport 2.0 (uit)
+LOCATION:Het Wapen van Zandvoort\, Gasthuisplein 10\, Zandvoort
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-11@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270108T190000Z
+DTEND:20270108T220000Z
+SUMMARY:Darten: DC Sport 2.0 - Druppie 1 (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-12@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270115T190000Z
+DTEND:20270115T220000Z
+SUMMARY:Darten: Harlem Pitchers - DC Sport 2.0 (uit)
+LOCATION:Café Westerhout\, Wagenweg 134\, Haarlem
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-14@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270205T190000Z
+DTEND:20270205T220000Z
+SUMMARY:Darten: DC Sport 2.0 - 't Ken toch niet weg zijn (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-15@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270212T190000Z
+DTEND:20270212T220000Z
+SUMMARY:Darten: Carrou-Hell - DC Sport 2.0 (uit)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-17@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270305T190000Z
+DTEND:20270305T220000Z
+SUMMARY:Darten: Bijna gezellig - DC Sport 2.0 (uit)
+LOCATION:Café Herberg IJmond\, Wijkerstraatweg 216\, Velsen-Noord
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-18@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270312T190000Z
+DTEND:20270312T220000Z
+SUMMARY:Darten: DC Sport 2.0 - 2 Enjoy 1 (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-19@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270326T190000Z
+DTEND:20270326T220000Z
+SUMMARY:Darten: Op het nippertje - DC Sport 2.0 (uit)
+LOCATION:Café Westerhout\, Wagenweg 134\, Haarlem
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-20@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270402T180000Z
+DTEND:20270402T210000Z
+SUMMARY:Darten: DC Sport 2.0 - Zeewegbar Owls (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-21@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270416T180000Z
+DTEND:20270416T210000Z
+SUMMARY:Darten: DC Sport 2.0 - Flierefluiters (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-22@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270423T180000Z
+DTEND:20270423T210000Z
+SUMMARY:Darten: Sport 1 - DC Sport 2.0 (uit)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-23@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270430T180000Z
+DTEND:20270430T210000Z
+SUMMARY:Darten: DC Sport 2.0 - Dartvoort aan Zee (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-24@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270507T180000Z
+DTEND:20270507T210000Z
+SUMMARY:Darten: Druppie 1 - DC Sport 2.0 (uit)
+LOCATION:VV Schoten Softbal\, van der Aartsportpark 2\, Haarlem
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+BEGIN:VEVENT
+UID:26-27-competitie-25@jos-tiebosch-darts
+DTSTAMP:20261115T151934Z
+DTSTART:20270514T180000Z
+DTEND:20270514T210000Z
+SUMMARY:Darten: DC Sport 2.0 - Harlem Pitchers (thuis)
+LOCATION:Café Sport\, Korte Kerkstraat 12\, Beverwijk
+URL:https://feeds.teambeheer.nl/web/team?d=19&t=6279&s=26-27
+DESCRIPTION:Controleer bij twijfel altijd Teambeheer of dartvk.nl.
+BEGIN:VALARM
+ACTION:DISPLAY
+TRIGGER:-PT2H
+DESCRIPTION:Over 2 uur darten
+END:VALARM
+END:VEVENT
+END:VCALENDAR

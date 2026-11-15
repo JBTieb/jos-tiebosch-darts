@@ -13,7 +13,11 @@ No build step, no server code. Open `index.html` directly, or host the folder on
 
 | What | Source | How |
 |---|---|---|
-| Team schedule, results, standings, player stats | `feeds.teambeheer.nl` (public pages of Dartvereniging Kennemerland, the same ones dartvk.nl embeds) | `tools/fetch_live.py`, run by GitHub Actions; writes `data/schedule.js` |
+| Team schedule, results, standings, team history, cup matches of the Café Sport teams | `feeds.teambeheer.nl` (public pages of Dartvereniging Kennemerland, the same ones dartvk.nl embeds) | `tools/fetch_live.py`, run by GitHub Actions; writes `data/schedule.js` |
+| Every match and single/pair game since 2017-18 (Statistieken page, 180 chart) | Teambeheer player pages, one per season | same script; writes `data/stats.js` (finished seasons are cached, only the current one is refetched) |
+| Calendar subscription | built from the schedule | same script; writes `data/wedstrijden.ics` (subscribe via `webcal://…/data/wedstrijden.ics`) |
+| DVK agenda (rankings, tournaments) | schema.org Event data on dartvk.nl/agenda | same script, inside `data/schedule.js` |
+| Timeline (cafés, milestones) | Jos's own story + the prize list | hand-written `data/timeline.js` |
 | PDC news, PDC videos, NOS darts news | `pdc.tv/rss.xml`, PDC YouTube channel feed, NOS sport feed | same script; writes `data/news.js` |
 | Running tournament + world ranking | Wikipedia API (nl, en), CC BY-SA | fetched live in the browser (`assets/js/app.js`) |
 

@@ -7,6 +7,8 @@
   const MEDIA = window.MEDIA || { albums: [], certificates180: [], certificatesOther: [], clippings: [], portraits: {}, videos: [] };
   const SCHEDULE = window.SCHEDULE || null;
   const NEWS = window.NEWS || { pdc: [], nos: [], videos: [] };
+  const STATS = window.STATS || null;
+  const TIMELINE = window.TIMELINE || { cafes: [], milestones: [] };
   const main = document.getElementById("main");
 
   // ------------------------------------------------------------ theme
@@ -38,6 +40,35 @@
   const relDay = (n) => (n === 0 ? "vandaag!" : n === 1 ? "morgen" : `over ${n} dagen`);
   const placeLabel = (p) => `${p}e`;
   const albumById = (id) => MEDIA.albums.find((a) => a.id === id);
+  const seasonLabel = (s) => `20${s.slice(0, 2)}-20${s.slice(3, 5)}`;
+  const pct = (w, l) => (w + l ? Math.round((100 * w) / (w + l)) : 0);
+  const finishes = (s) => (String(s || "").match(/\d{2,3}/g) || []).map(Number).filter((n) => n >= 60 && n <= 170);
+
+  // ------------------------------------------------------------ Teambeheer statistics (data/stats.js)
+  const allMatches = () => (STATS ? STATS.seasons.flatMap((se) => se.matches.map((m) => ({ ...m, season: se.season }))) : [])
+    .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  const legsOf = (g) => { const m = /^(\d+)-(\d+)$/.exec(g.legs || ""); return m ? [Number(m[1]), Number(m[2])] : [0, 0]; };
+
+  function summarize(matches) {
+    const s = { matches: matches.length, sW: 0, sV: 0, pW: 0, pV: 0, n180: 0, best: 0, lf: 0, la: 0, tW: 0, tG: 0, tV: 0 };
+    matches.forEach((m) => {
+      s.n180 += m.n180 || 0;
+      s.best = Math.max(s.best, ...finishes(m.finish), 0);
+      if (m.teamResult) s["t" + m.teamResult]++;
+      m.games.forEach((g) => {
+        if (g.type === "single") {
+          if (g.result === "W") s.sW++; else if (g.result === "V") s.sV++;
+          const [f, a] = legsOf(g); s.lf += f; s.la += a;
+        } else if (g.result === "W") s.pW++; else if (g.result === "V") s.pV++;
+      });
+    });
+    return s;
+  }
+  const currentSeasonStats = () => {
+    if (!STATS || !SCHEDULE) return null;
+    const se = STATS.seasons.find((x) => x.season === SCHEDULE.season);
+    return se ? summarize(se.matches) : null;
+  };
 
   // ------------------------------------------------------------ derived numbers
   const firsts = PRIZES.filter((p) => p.place === 1);
@@ -82,7 +113,7 @@
       </div>
       ${big || m.location ? `<div class="btn-row" style="margin-top:16px">
         ${m.location ? `<a class="btn" href="${mapsLink(m.location)}" target="_blank" rel="noopener">Route plannen</a>` : ""}
-        ${big ? `<a class="btn ghost" href="${esc(SCHEDULE.team.icalUrl)}">Zet in mijn agenda</a>` : `<a class="btn ghost" href="#/wedstrijden">Heel het programma</a>`}
+        ${big ? `<a class="btn ghost" href="${esc(/^https:/.test(SCHEDULE.icsUrl || "") ? SCHEDULE.icsUrl.replace(/^https:/, "webcal:") : SCHEDULE.team.icalUrl)}">Zet in mijn agenda</a>` : `<a class="btn ghost" href="#/wedstrijden">Heel het programma</a>`}
       </div>` : ""}
     </div>`;
   }
@@ -189,6 +220,54 @@
     });
   }
 
+  function agendaCard() {
+    if (!SCHEDULE || !SCHEDULE.icsUrl || !/^https:/.test(SCHEDULE.icsUrl)) return "";
+    const webcal = SCHEDULE.icsUrl.replace(/^https:/, "webcal:");
+    return `<section class="section card">
+      <div class="eyebrow">Agenda die zichzelf bijwerkt</div>
+      <h2 style="margin-top:4px">Alle wedstrijden in je telefoon</h2>
+      <p>Met een agenda-abonnement staan alle wedstrijden van ${esc(SCHEDULE.team.name)} in de agenda van je telefoon of computer.
+        Wordt een wedstrijd verzet, dan verandert hij daar vanzelf mee. Twee uur van tevoren krijg je een herinnering.</p>
+      <div class="grid grid-2">
+        <div>
+          <h3>iPhone, iPad of Mac</h3>
+          <p>Tik op de knop en kies <b>Abonneer</b>.</p>
+          <a class="btn" href="${esc(webcal)}">Abonneer op de wedstrijden</a>
+        </div>
+        <div>
+          <h3>Android of Google Agenda</h3>
+          <p>Kopieer de link. Ga op de computer naar <a href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl" target="_blank" rel="noopener">Google Agenda → Agenda toevoegen → Via URL</a>, plak de link en klik op Toevoegen. Daarna verschijnt hij ook op je telefoon.</p>
+          <button class="btn ghost" id="copy-ics" data-url="${esc(SCHEDULE.icsUrl)}">Kopieer de link</button>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function cupSection() {
+    const cup = SCHEDULE && SCHEDULE.cup;
+    if (!cup || !cup.rounds || !cup.rounds.length) return "";
+    const ours = cup.matches.some((m) => m.ours);
+    const rows = cup.matches.map((m) => `<tr class="${m.ours ? "us" : ""}">
+      <td>${esc(m.pool)} · ronde ${esc(m.round.replace("b", ""))}</td><td>${m.date ? esc(shortDate(m.date)) : ""}</td>
+      <td>${esc(m.home)} – ${esc(m.away)}</td><td class="num"><b>${esc(m.score && m.score !== "-" ? m.score : "")}</b></td></tr>`).join("");
+    return `<section class="section">
+      <div class="section-head"><h2>Bekercompetitie</h2><a href="${esc(cup.matches[0]?.url || "https://www.dartvk.nl/bekercompetitie/")}" target="_blank" rel="noopener">Alle bekerwedstrijden →</a></div>
+      <p>${ours ? `${esc(SCHEDULE.team.name)} doet mee aan de beker.` : `${esc(SCHEDULE.team.name)} doet dit seizoen niet mee aan de beker.`}
+        Hieronder de bekerwedstrijden van de teams van café Sport.</p>
+      ${rows ? `<div class="table-wrap"><table class="data"><thead><tr><th>Poule</th><th>Datum</th><th>Wedstrijd</th><th class="num">Uitslag</th></tr></thead><tbody>${rows}</tbody></table></div>`
+        : `<p class="muted">Nog geen bekerwedstrijden van café Sport gevonden.</p>`}
+    </section>`;
+  }
+
+  function afterMatches() {
+    const b = document.getElementById("copy-ics");
+    if (!b) return;
+    b.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(b.dataset.url); b.textContent = "Gekopieerd!"; }
+      catch { prompt("Kopieer deze link:", b.dataset.url); }
+    });
+  }
+
   function pageMatches() {
     if (!SCHEDULE) return `<div class="page-head"><h1>Mijn wedstrijden</h1></div>${staleNotice()}`;
     const t = SCHEDULE.team;
@@ -225,17 +304,23 @@
       </div>
       <div class="grid grid-2">
         ${matchCard(nm, true)}
-        ${p ? `<div class="card">
+        ${p ? (() => {
+          const cs = currentSeasonStats();
+          return `<div class="card">
           <div class="eyebrow">Jos dit seizoen</div>
           <div class="stats" style="margin:8px 0 12px">
-            <div class="stat"><b>${esc(p.n180 || "0")}</b><span>keer 180</span></div>
-            <div class="stat"><b>${esc(p.singlesWin || "0")}%</b><span>singles gewonnen</span></div>
-            <div class="stat"><b>${esc(p.pairsWin || "0")}%</b><span>koppels gewonnen</span></div>
+            <div class="stat"><b>${cs ? cs.n180 : esc(p.n180 || "0")}</b><span>keer 180</span></div>
+            <div class="stat"><b>${cs ? `${cs.sW}-${cs.sV}` : esc(p.singlesWin || "0") + "%"}</b><span>singles gewonnen-verloren</span></div>
+            <div class="stat"><b>${cs ? `${cs.pW}-${cs.pV}` : esc(p.pairsWin || "0") + "%"}</b><span>koppels gewonnen-verloren</span></div>
           </div>
-          ${p.longestStreak ? `<p>Langste reeks gewonnen singles: <b>${esc(p.longestStreak)}</b></p>` : ""}
-          <a href="${esc(p.url)}" target="_blank" rel="noopener">Alle partijen van Jos op Teambeheer →</a>
-        </div>` : ""}
+          ${p.longestStreak ? `<p>Langste reeks gewonnen singles ooit: <b>${esc(p.longestStreak)}</b></p>` : ""}
+          <div class="btn-row"><a class="btn ghost" href="#/statistieken">Alle statistieken</a>
+            <a class="btn ghost" href="${esc(p.url)}" target="_blank" rel="noopener">Op Teambeheer</a></div>
+        </div>`;
+        })() : ""}
       </div>
+
+      ${agendaCard()}
 
       <section class="section">
         <div class="section-head"><h2>Programma en uitslagen</h2></div>
@@ -256,6 +341,28 @@
           <div class="table-wrap"><table class="data">
             <thead><tr><th>Speler</th><th class="num">Singles</th><th class="num">Winst</th><th class="num">180</th><th class="num">Finish</th></tr></thead>
             <tbody>${players}</tbody></table></div>
+          <p class="muted small">De cijfers in deze tabel komen rechtstreeks van Teambeheer en lopen soms wat achter.</p>
+        </div>
+      </section>
+
+      ${cupSection()}
+
+      <section class="section grid grid-2" style="align-items:start">
+        <div>
+          <h2>Agenda van de dartvereniging</h2>
+          ${(SCHEDULE.agenda || []).length ? `<div class="table-wrap"><table class="data"><tbody>
+            ${SCHEDULE.agenda.map((e) => `<tr><td>${esc(longDate(e.date))}<br><span class="muted small">${esc(e.time)} uur</span></td>
+              <td><a href="${esc(e.url)}" target="_blank" rel="noopener" style="color:var(--text)"><b>${esc(e.title)}</b></a>${e.location ? `<br><span class="muted small">${esc(e.location)}</span>` : ""}</td></tr>`).join("")}
+          </tbody></table></div>
+          <p class="muted small">Rankings en toernooien van dartvk.nl.</p>` : `<p>Geen activiteiten gevonden. Kijk op <a href="https://www.dartvk.nl/agenda/" target="_blank" rel="noopener">dartvk.nl/agenda</a>.</p>`}
+        </div>
+        <div>
+          <h2>${esc(t.name)} door de jaren heen</h2>
+          ${(SCHEDULE.teamHistory || []).length ? `<div class="table-wrap"><table class="data">
+            <thead><tr><th>Seizoen</th><th>Team</th><th>Divisie</th><th class="num">Eindstand</th></tr></thead><tbody>
+            ${SCHEDULE.teamHistory.map((h) => `<tr><td>${esc(seasonLabel(h.season))}</td><td>${esc(h.team)}</td><td>${esc(h.division === "Ere" ? "Eredivisie" : h.division)}</td>
+              <td class="num">${h.pos && h.pos !== "0" ? `<b>${esc(h.pos)}e</b>` : h.season === SCHEDULE.season ? "bezig" : "–"}</td></tr>`).join("")}
+          </tbody></table></div>` : ""}
         </div>
       </section>
 
@@ -324,27 +431,38 @@
   // ------------------------------------------------------------ certificates
   function pageCertificates() {
     const certs = MEDIA.certificates180;
-    const startYear = 1989, endYear = Number(certs[certs.length - 1].season.slice(0, 4));
-    const bySeason = Object.fromEntries(certs.map((c) => [c.season, c]));
+    // Certificates up to 2011, Teambeheer counts from 2017-18 on.
+    const counts = Object.fromEntries(certs.map((c) => [c.season, { n: c.count, src: "cert" }]));
+    (STATS ? STATS.seasons : []).forEach((se) => {
+      const label = seasonLabel(se.season);
+      if (!counts[label]) counts[label] = { n: se.matches.reduce((s, m) => s + (m.n180 || 0), 0), src: "tb", live: SCHEDULE && se.season === SCHEDULE.season };
+    });
+    const startYear = 1989;
+    const endYear = Math.max(...Object.keys(counts).map((s) => Number(s.slice(0, 4))));
     const seasons = [];
     for (let y = startYear; y <= endYear; y++) seasons.push(`${y}-${y + 1}`);
-    const max = Math.max(...certs.map((c) => c.count));
+    const max = Math.max(...Object.values(counts).map((c) => c.n));
     const best = certs.reduce((a, b) => (b.count > a.count ? b : a));
+    const tbTotal = Object.values(counts).filter((c) => c.src === "tb").reduce((s, c) => s + c.n, 0);
+    const gapTitle = (s) => (s === "2020-2021" ? "corona: geen competitie" : "geen gegevens bewaard");
     return `
       <div class="page-head">
         <h1>Certificaten</h1>
         <p>Elk seizoen reikte de Dartvereniging Kennemerland een certificaat uit voor het aantal keer 180 in de competitie.
-        Samen goed voor <b>${total180} keer 180</b>. Het topseizoen was ${esc(best.season)} met ${best.count} stuks.</p>
+        Samen goed voor <b>${total180} keer 180</b>. Het topseizoen was ${esc(best.season)} met ${best.count} stuks.
+        ${tbTotal ? `Sinds 2017-2018 houdt Teambeheer het bij: nog eens <b>${tbTotal} keer 180</b>.` : ""}</p>
       </div>
       <div class="card">
         <h3>Aantal keer 180 per seizoen</h3>
         <div class="bars" style="--n:${seasons.length}">
-          ${seasons.map((s) => bySeason[s]
-            ? `<div class="bar" style="height:${(bySeason[s].count / max) * 100}%" title="${s}: ${bySeason[s].count}× 180"><span>${bySeason[s].count}</span></div>`
-            : `<div class="bar gap" style="height:12%" title="${s}: geen certificaat bewaard"></div>`).join("")}
+          ${seasons.map((s) => counts[s]
+            ? `<div class="bar ${counts[s].src === "tb" ? "alt" : ""}" style="height:${Math.max((counts[s].n / max) * 100, 2)}%" title="${s}: ${counts[s].n}× 180${counts[s].live ? " (seizoen loopt nog)" : ""}"><span>${counts[s].n}${counts[s].live ? "…" : ""}</span></div>`
+            : `<div class="bar gap" style="height:12%" title="${s}: ${gapTitle(s)}"></div>`).join("")}
         </div>
         <div class="bar-labels" style="--n:${seasons.length}">${seasons.map((s) => `<div>'${s.slice(2, 4)}</div>`).join("")}</div>
-        <p class="muted small" style="margin-top:10px">Gearceerd: van dat seizoen is (nog) geen certificaat bewaard.</p>
+        <p class="muted small" style="margin-top:10px">
+          <span class="legend-dot"></span> certificaat &nbsp; <span class="legend-dot alt"></span> Teambeheer &nbsp; gearceerd: geen gegevens (2020-2021: corona).
+          ${counts[seasonLabel(SCHEDULE ? SCHEDULE.season : "00-01")]?.live ? "Het lopende seizoen is nog niet af." : ""}</p>
       </div>
 
       <section class="section">
@@ -550,10 +668,56 @@
       ${openSet.size && [...openSet].some(isToday) ? `<p class="muted">Open geklapt: wat er vandaag gespeeld wordt. Klik op een kopje om de rest te zien.</p>` : ""}
       ${shown.map((s, i) => `<details class="wsec" ${openSet.has(s) ? "open" : ""}><summary>${isToday(s) ? `<span class="live-dot"></span>` : ""}${esc(s.title)}</summary><div class="wiki" data-sec="${i}"></div></details>`).join("")
         || `<p>Nog geen uitslagen. <a href="${pageUrl}" target="_blank" rel="noopener">Bekijk de pagina op Wikipedia</a>.</p>`}`;
+    const dutch = dutchBlock(root, todayRx);
     shown.forEach((s, i) => {
       const target = box.querySelector(`[data-sec="${i}"]`);
       s.nodes.forEach((n) => target.appendChild(n));
     });
+    if (dutch) box.querySelector(".card").insertAdjacentHTML("afterend", dutch);
+  }
+
+  // Dutch players: find every flag of the Netherlands, then the table rows (matches) they appear in.
+  const NL_FLAG = /Flag_of_the_Netherlands/i;
+  function dutchBlock(root, todayRx) {
+    const names = new Set();
+    const isFlag = (n) => n.nodeType === 1 && (n.tagName === "IMG" || n.querySelector?.("img")) && /flag/i.test(n.innerHTML || n.getAttribute?.("src") || "");
+    const nameLink = (n) => (n.nodeType === 1 ? (n.tagName === "A" && !n.querySelector("img") ? n : n.querySelector?.("a:not(:has(img))")) : null);
+    root.querySelectorAll("img").forEach((img) => {
+      if (!NL_FLAG.test(img.getAttribute("src") || "")) return;
+      // The flag icon sits in a <span class="flagicon"> next to the player's link, either before or after it.
+      // Look on the same "line" only: stop at a <br> or at another flag.
+      const anchor = img.closest('[typeof="mw:File"], .flagicon') || img.closest("a") || img;
+      const walk = (dir) => {
+        for (let n = anchor[dir]; n; n = n[dir]) {
+          if (n.nodeType === 1 && n.tagName === "BR") return null;
+          if (isFlag(n)) return null;
+          const a = nameLink(n);
+          if (a) return a;
+        }
+        return null;
+      };
+      const link = walk("nextSibling") || walk("previousSibling");
+      const name = link && link.textContent.trim();
+      if (name && name.length > 3 && !/^\d/.test(name)) names.add(name);
+    });
+    if (!names.size) return "";
+    const scoreRx = /\b\d{1,2}\s*[–-]\s*\d{1,2}\b/;
+    const seen = new Set(), rows = [];
+    root.querySelectorAll("tr").forEach((tr) => {
+      if (![...tr.querySelectorAll("img")].some((i) => NL_FLAG.test(i.getAttribute("src") || ""))) return;
+      const cells = [...tr.children].map((c) => c.textContent.replace(/\s+/g, " ").trim()).filter(Boolean);
+      const text = cells.join("  ·  ");
+      if (!scoreRx.test(text) || cells.length < 3 || seen.has(text)) return;
+      seen.add(text);
+      rows.push({ text, today: todayRx.test(text) });
+    });
+    const shownRows = [...rows.filter((r) => r.today), ...rows.filter((r) => !r.today)].slice(0, 24);
+    return `<div class="card nl-block" style="margin-bottom:12px">
+      <h3>🇳🇱 Nederlanders in dit toernooi</h3>
+      <p>${[...names].map((n) => `<span class="badge" style="margin:2px">${esc(n)}</span>`).join(" ")}</p>
+      ${shownRows.length ? `<ul class="news-list">${shownRows.map((r) => `<li>${r.today ? `<span class="live-dot"></span><b>vandaag</b> · ` : ""}${esc(r.text)}</li>`).join("")}</ul>
+        <p class="muted small">Partijen met een Nederlander, uit de tabellen hieronder. Vandaag gespeelde partijen staan bovenaan.</p>` : ""}
+    </div>`;
   }
 
   async function renderRankings(box) {
@@ -641,6 +805,273 @@
     liveTimer = setInterval(load, 5 * 60000);
   }
 
+  // ------------------------------------------------------------ statistics page
+  const EVENT_GROUPS = [
+    ["Oliebollentoernooi", /oliebollen/i], ["Aardbeientoernooi", /aardbei/i], ["Snerttoernooi", /snert/i],
+    ["Oranjetoernooi", /oranje/i], ["Gesloten Kennemerland", /gesloten kennemerland/i], ["KPN-kampioenschap", /\bkpn\b/i],
+    ["Kiwanis-toernooi", /kiwanis/i], ["Clubkampioenschap", /clubkampioen/i], ["Zomercompetitie", /zomercompetitie/i],
+    ["HLM Ranking", /hlm ranking/i], ["DVK Ranking", /dvk (master )?ranking/i], ["Foster Parents Toernooi", /foster/i],
+    ["Zomerranking", /zomerranking|midzomer/i], ["Bekercompetitie", /beker/i], ["Koppeltoernooi", /koppel/i], ["Tac-Tics", /tac-?tics/i],
+  ];
+  const venueName = (v) => (v || "").replace(/\s*\(.*\)$/, "") || "onbekend";
+
+  function barChart(items, opts = {}) {
+    const max = Math.max(...items.map((i) => i.value), 1);
+    return `<div class="bars" style="--n:${items.length};height:${opts.height || 160}px">
+      ${items.map((i) => `<div class="bar ${i.cls || ""}" style="height:${i.value ? Math.max((i.value / max) * 100, 2) : 0}%" title="${esc(i.title || i.label + ": " + i.value)}">${opts.values === false ? "" : `<span>${esc(i.show ?? i.value)}</span>`}</div>`).join("")}
+    </div>
+    <div class="bar-labels" style="--n:${items.length}">${items.map((i, n) => `<div>${opts.every && n % opts.every ? "" : esc(i.label)}</div>`).join("")}</div>`;
+  }
+
+  function pageStats() {
+    const ms = allMatches();
+    const tot = summarize(ms);
+    const seasons = STATS ? [...STATS.seasons].sort((a, b) => a.season.localeCompare(b.season)) : [];
+    const hist = Object.fromEntries((SCHEDULE?.teamHistory || []).map((h) => [h.season, h]));
+
+    // per opponent team / player / partner
+    const teams = {}, players = {}, partners = {};
+    // Team names are typed by hand in Teambeheer: "2Enjoy 1" / "2 Enjoy 1", "0p het nippertje", "D.C." / "DC".
+    const teamKey = (n) => n.toLowerCase().replace(/^0p\b/, "op").replace(/\bniet\b/g, "nie").replace(/[^a-z0-9]/g, "");
+    ms.forEach((m) => {
+      const t = (teams[teamKey(m.opponent)] ||= { name: m.opponent, n: 0, W: 0, G: 0, V: 0, sW: 0, sV: 0, last: "" });
+      t.n++; if (m.teamResult) t[m.teamResult]++; t.last = m.date; t.name = m.opponent;  // latest spelling wins
+      m.games.forEach((g) => {
+        if (g.type === "single") {
+          if (g.result === "W") t.sW++; else if (g.result === "V") t.sV++;
+          const name = g.opponents[0] || "?";
+          const p = (players[name.toLowerCase()] ||= { name, n: 0, W: 0, V: 0, lf: 0, la: 0, team: m.opponent, last: "" });
+          const [f, a] = legsOf(g);
+          p.n++; p.lf += f; p.la += a; p.team = m.opponent; p.last = m.date;
+          if (g.result === "W") p.W++; else if (g.result === "V") p.V++;
+        } else {
+          g.partners.forEach((name) => {
+            const p = (partners[name] ||= { name, n: 0, W: 0, V: 0 });
+            p.n++; if (g.result === "W") p.W++; else if (g.result === "V") p.V++;
+          });
+        }
+      });
+    });
+    const teamList = Object.values(teams).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+    const playerList = Object.values(players).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+    const partnerList = Object.values(partners).sort((a, b) => b.n - a.n).slice(0, 12);
+    const fav = Object.values(players).filter((p) => p.n >= 2).sort((a, b) => b.W - a.W || pct(b.W, b.V) - pct(a.W, a.V)).slice(0, 5);
+    const tough = Object.values(players).filter((p) => p.n >= 2 && p.V > 0).sort((a, b) => b.V - a.V || pct(a.W, a.V) - pct(b.W, b.V)).slice(0, 5);
+
+    // records
+    const finishList = ms.flatMap((m) => finishes(m.finish).map((f) => ({ f, m }))).sort((a, b) => b.f - a.f).slice(0, 10);
+    const most180 = [...ms].sort((a, b) => (b.n180 || 0) - (a.n180 || 0))[0];
+    let run = 0, bestRun = 0, bestRunEnd = null;
+    ms.forEach((m) => m.games.filter((g) => g.type === "single").forEach((g) => {
+      if (g.result === "W") { run++; if (run > bestRun) { bestRun = run; bestRunEnd = m.date; } } else run = 0;
+    }));
+    const whitewash = ms.flatMap((m) => m.games).filter((g) => g.type === "single" && g.result === "W" && legsOf(g)[1] === 0).length;
+    const homeS = summarize(ms.filter((m) => m.side === "home")), awayS = summarize(ms.filter((m) => m.side === "away"));
+    const bigWin = [...ms].filter((m) => m.teamScore).sort((a, b) => {
+      const d = (x) => { const [u, t] = x.teamScore.split("-").map(Number); return u - t; };
+      return d(b) - d(a);
+    })[0];
+
+    // prizes
+    const years = {};
+    PRIZES.forEach((p) => { const y = p.date.slice(0, 4); (years[y] ||= { n: 0, first: 0 }); years[y].n++; if (p.place === 1) years[y].first++; });
+    const y0 = Number(PRIZES[0]?.date.slice(0, 4) || 1984), y1 = Number(PRIZES[PRIZES.length - 1]?.date.slice(0, 4) || 2022);
+    const yearItems = [];
+    for (let y = y0; y <= y1; y++) yearItems.push({ label: `'${String(y).slice(2)}`, value: years[y]?.n || 0, title: `${y}: ${years[y]?.n || 0} prijzen, ${years[y]?.first || 0}× eerste` });
+    const decades = {};
+    PRIZES.forEach((p) => { const d = `${p.date.slice(0, 3)}0`; (decades[d] ||= { n: 0, p1: 0, p2: 0, p3: 0 }); decades[d].n++; if (p.place <= 3) decades[d]["p" + p.place]++; });
+    const venues = {};
+    PRIZES.forEach((p) => { const v = venueName(p.venue); (venues[v] ||= { n: 0, first: 0 }); venues[v].n++; if (p.place === 1) venues[v].first++; });
+    const venueList = Object.entries(venues).filter(([v]) => v !== "onbekend").sort((a, b) => b[1].n - a[1].n).slice(0, 10);
+    const events = EVENT_GROUPS.map(([label, rx]) => {
+      const list = PRIZES.filter((p) => rx.test(p.event));
+      return { label, n: list.length, first: list.filter((p) => p.place === 1).length };
+    }).filter((e) => e.n).sort((a, b) => b.first - a.first || b.n - a.n);
+    const placeCount = (n) => PRIZES.filter((p) => p.place === n).length;
+
+    const row = (cells) => `<tr>${cells.join("")}</tr>`;
+    const tdn = (v) => `<td class="num">${v}</td>`;
+    const opp = (m) => `${esc(m.opponent)}, ${esc(shortDate(m.date))}`;
+
+    return `
+      <div class="page-head">
+        <div class="eyebrow">Voor de liefhebber</div>
+        <h1>Statistieken</h1>
+        <p>Alles in cijfers. ${STATS ? `Competitie en beker: <b>${ms.length} wedstrijden</b> sinds ${esc(seasonLabel(seasons[0].season))}, partij voor partij uit Teambeheer.` : ""}
+          Erelijst: <b>${PRIZES.length} prijzen</b> sinds ${y0}.</p>
+      </div>
+
+      ${STATS ? `
+      <div class="stats">
+        <div class="stat"><b>${tot.matches}</b><span>wedstrijden sinds ${esc(seasonLabel(seasons[0].season).slice(0, 4))}</span></div>
+        <div class="stat"><b>${tot.sW}-${tot.sV}</b><span>singles gewonnen-verloren (${pct(tot.sW, tot.sV)}%)</span></div>
+        <div class="stat"><b>${tot.pW}-${tot.pV}</b><span>koppels gewonnen-verloren (${pct(tot.pW, tot.pV)}%)</span></div>
+        <div class="stat"><b>${tot.n180}</b><span>keer 180</span></div>
+        <div class="stat"><b>${tot.best || "–"}</b><span>hoogste finish</span></div>
+        <div class="stat"><b>${tot.lf}-${tot.la}</b><span>legs in singles</span></div>
+      </div>
+
+      <section class="section">
+        <div class="section-head"><h2>Per seizoen</h2></div>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>Seizoen</th><th>Team</th><th class="num">Eindstand</th><th class="num">Wed.</th><th class="num">Singles</th><th class="num">%</th><th class="num">Koppels</th><th class="num">180</th><th class="num">Hoogste finish</th></tr></thead>
+          <tbody>${[...seasons].reverse().map((se) => {
+            const s = summarize(se.matches); const h = hist[se.season];
+            return row([`<td>${esc(seasonLabel(se.season))}${SCHEDULE && se.season === SCHEDULE.season ? ` <span class="badge">bezig</span>` : ""}</td>`, `<td>${esc(se.team)}</td>`,
+              tdn(h && h.pos && h.pos !== "0" ? h.pos + "e" : "–"), tdn(s.matches), tdn(`${s.sW}-${s.sV}`), tdn(pct(s.sW, s.sV)), tdn(`${s.pW}-${s.pV}`), tdn(`<b>${s.n180}</b>`), tdn(s.best || "–")]);
+          }).join("")}</tbody></table></div>
+        <div class="grid grid-2" style="margin-top:18px">
+          <div class="card"><h3>180's per seizoen</h3>${barChart(seasons.map((se) => ({ label: `'${se.season.slice(0, 2)}`, value: summarize(se.matches).n180 })))}</div>
+          <div class="card"><h3>Singles gewonnen (%)</h3>${barChart(seasons.map((se) => { const s = summarize(se.matches); return { label: `'${se.season.slice(0, 2)}`, value: pct(s.sW, s.sV), show: pct(s.sW, s.sV), cls: "alt" }; }))}</div>
+        </div>
+      </section>
+
+      <section class="section grid grid-2" style="align-items:start">
+        <div class="card"><h3>Favoriete tegenstanders</h3><p class="muted small">Van wie Jos het vaakst won in de singles.</p>
+          <table class="data"><tbody>${fav.map((p) => row([`<td>${esc(p.name)}<br><span class="muted small">${esc(p.team)}</span></td>`, tdn(`<b>${p.W}-${p.V}</b>`)])).join("")}</tbody></table></div>
+        <div class="card"><h3>Lastigste tegenstanders</h3><p class="muted small">Tegen wie hij het vaakst verloor.</p>
+          <table class="data"><tbody>${tough.map((p) => row([`<td>${esc(p.name)}<br><span class="muted small">${esc(p.team)}</span></td>`, tdn(`<b>${p.W}-${p.V}</b>`)])).join("") || "<tr><td>Niemand vaker dan één keer!</td></tr>"}</tbody></table></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Tegen elk team</h2><input class="search" id="team-search" type="search" placeholder="Zoek een team" aria-label="Zoek een team"></div>
+        <div class="table-wrap" style="max-height:520px;overflow:auto"><table class="data" id="team-table">
+          <thead><tr><th>Tegenstander</th><th class="num">Ontmoetingen</th><th class="num">Team W-G-V</th><th class="num">Jos singles</th><th class="num">%</th><th>Laatste keer</th></tr></thead>
+          <tbody>${teamList.map((t) => `<tr data-q="${esc(t.name.toLowerCase())}">${[`<td><b>${esc(t.name)}</b></td>`, tdn(t.n), tdn(`${t.W}-${t.G}-${t.V}`), tdn(`${t.sW}-${t.sV}`), tdn(pct(t.sW, t.sV)), `<td>${esc(shortDate(t.last))}</td>`].join("")}</tr>`).join("")}</tbody></table></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Tegen elke speler (singles)</h2><input class="search" id="player-search" type="search" placeholder="Zoek een speler" aria-label="Zoek een speler"></div>
+        <div class="table-wrap" style="max-height:520px;overflow:auto"><table class="data" id="player-table">
+          <thead><tr><th>Speler</th><th>Team</th><th class="num">Partijen</th><th class="num">W-V</th><th class="num">Legs</th><th>Laatste keer</th></tr></thead>
+          <tbody>${playerList.map((p) => `<tr data-q="${esc((p.name + " " + p.team).toLowerCase())}">${[`<td><b>${esc(p.name)}</b></td>`, `<td>${esc(p.team)}</td>`, tdn(p.n), tdn(`${p.W}-${p.V}`), tdn(`${p.lf}-${p.la}`), `<td>${esc(shortDate(p.last))}</td>`].join("")}</tr>`).join("")}</tbody></table></div>
+        <p class="muted small">${playerList.length} verschillende tegenstanders in de singles.</p>
+      </section>
+
+      <section class="section grid grid-2" style="align-items:start">
+        <div class="card"><h3>Koppelpartners</h3>
+          <table class="data"><thead><tr><th>Partner</th><th class="num">Koppels</th><th class="num">W-V</th><th class="num">%</th></tr></thead>
+          <tbody>${partnerList.map((p) => row([`<td>${esc(p.name)}</td>`, tdn(p.n), tdn(`${p.W}-${p.V}`), tdn(pct(p.W, p.V))])).join("")}</tbody></table></div>
+        <div class="card"><h3>Records</h3>
+          <dl class="facts">
+            <dt>Langste reeks</dt><dd>${bestRun} singles op rij gewonnen${bestRunEnd ? ` (tot ${esc(shortDate(bestRunEnd))})` : ""}</dd>
+            <dt>Meeste 180's</dt><dd>${most180 ? `${most180.n180} in één wedstrijd (${opp(most180)})` : "–"}</dd>
+            <dt>Grootste zege</dt><dd>${bigWin ? `${esc(bigWin.teamScore)} tegen ${opp(bigWin)}` : "–"}</dd>
+            <dt>Zonder leg tegen</dt><dd>${whitewash} singles gewonnen zonder één leg af te staan</dd>
+            <dt>Thuis</dt><dd>${homeS.sW}-${homeS.sV} in singles (${pct(homeS.sW, homeS.sV)}%)</dd>
+            <dt>Uit</dt><dd>${awayS.sW}-${awayS.sV} in singles (${pct(awayS.sW, awayS.sV)}%)</dd>
+          </dl></div>
+      </section>
+
+      <section class="section">
+        <h2>Hoogste finishes</h2>
+        <div class="table-wrap"><table class="data"><thead><tr><th class="num">Finish</th><th>Datum</th><th>Wedstrijd</th></tr></thead>
+          <tbody>${finishList.map(({ f, m }) => row([tdn(`<b>${f}</b>`), `<td>${esc(shortDate(m.date))}</td>`, `<td>${esc(m.home)} – ${esc(m.away)}</td>`])).join("")}</tbody></table></div>
+        <p class="muted small">Teambeheer noteert finishes van 100 of hoger. De 170 uit 1993 staat bij de <a href="#/certificaten">certificaten</a>.</p>
+      </section>` : `<div class="notice">De competitiestatistieken worden nog geladen bij de volgende update.</div>`}
+
+      <section class="section">
+        <div class="section-head"><h2>De erelijst in cijfers</h2><a href="#/erelijst">Naar de erelijst →</a></div>
+        <div class="stats">
+          <div class="stat"><b>${placeCount(1)}×</b><span>eerste prijs</span></div>
+          <div class="stat"><b>${placeCount(2)}×</b><span>tweede prijs</span></div>
+          <div class="stat"><b>${placeCount(3)}×</b><span>derde prijs</span></div>
+          <div class="stat"><b>${Object.keys(venues).length}</b><span>verschillende plekken</span></div>
+        </div>
+        <div class="card"><h3>Prijzen per jaar</h3>${barChart(yearItems, { every: 4, values: false, height: 150 })}
+          <p class="muted small">Beste jaar: ${(() => { const [y, v] = Object.entries(years).sort((a, b) => b[1].n - a[1].n)[0]; return `${y} met ${v.n} prijzen`; })()}. Tussen 2012 en 2015 ontbreken gegevens.</p></div>
+        <div class="grid grid-2" style="margin-top:18px;align-items:start">
+          <div class="card"><h3>Meest gewonnen toernooien</h3>
+            <table class="data"><thead><tr><th>Toernooi</th><th class="num">1e</th><th class="num">Prijzen</th></tr></thead>
+            <tbody>${events.slice(0, 10).map((e) => row([`<td>${esc(e.label)}</td>`, tdn(`<b>${e.first}</b>`), tdn(e.n)])).join("")}</tbody></table></div>
+          <div class="card"><h3>Waar de prijzen vielen</h3>
+            <table class="data"><thead><tr><th>Plek</th><th class="num">1e</th><th class="num">Prijzen</th></tr></thead>
+            <tbody>${venueList.map(([v, c]) => row([`<td>${esc(v)}</td>`, tdn(`<b>${c.first}</b>`), tdn(c.n)])).join("")}</tbody></table></div>
+        </div>
+        <div class="card" style="margin-top:18px"><h3>Per tien jaar</h3>
+          <table class="data"><thead><tr><th>Periode</th><th class="num">Prijzen</th><th class="num">1e</th><th class="num">2e</th><th class="num">3e</th></tr></thead>
+          <tbody>${Object.entries(decades).sort().map(([d, c]) => row([`<td>jaren '${d.slice(2)}</td>`, tdn(`<b>${c.n}</b>`), tdn(c.p1), tdn(c.p2), tdn(c.p3)])).join("")}</tbody></table></div>
+      </section>`;
+  }
+
+  function afterStats() {
+    [["team-search", "team-table"], ["player-search", "player-table"]].forEach(([input, table]) => {
+      const i = document.getElementById(input);
+      if (!i) return;
+      i.addEventListener("input", () => {
+        const q = i.value.toLowerCase();
+        document.querySelectorAll(`#${table} tbody tr`).forEach((tr) => { tr.hidden = q && !tr.dataset.q.includes(q); });
+      });
+    });
+  }
+
+  // ------------------------------------------------------------ timeline page
+  function pageTimeline() {
+    const items = [...TIMELINE.milestones].sort((a, b) => a.date.localeCompare(b.date));
+    const years = new Date().getFullYear() - 1983;
+    return `
+      <div class="page-head">
+        <div class="eyebrow">1983 – nu</div>
+        <h1>${years} jaar darten</h1>
+        <p>Van zijn eerste toernooi in café De Smidse tot de Eredivisie met DC Sport 2.0: de cafés waar Jos speelde en de mijlpalen onderweg.</p>
+      </div>
+
+      <section class="section">
+        <h2>Zijn cafés</h2>
+        <p class="muted">In de volgorde van zijn eigen verhaal. De pinnen op de kaart staan op straatniveau; alleen café Sport staat precies.</p>
+        <div class="grid grid-2" style="align-items:start">
+          <div id="cafe-map" class="map"></div>
+          <ol class="cafes">
+            ${TIMELINE.cafes.map((c, i) => `<li data-i="${i}" class="${c.home ? "home" : ""}">
+              <b>${esc(c.name)}</b>${c.note ? ` <span class="muted">· ${esc(c.note)}</span>` : ""}<br>${esc(c.text)}</li>`).join("")}
+          </ol>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Mijlpalen</h2>
+        <div class="timeline">
+          ${items.map((m) => `<div class="tl-item">
+            <div class="tl-date">${esc(m.label || longDate(m.date, false))}</div>
+            <div class="tl-body card">
+              ${m.image ? `<button class="tl-img" data-img="${esc(m.image)}" data-cap="${esc(m.title)}"><img src="${thumb(m.image)}" alt="" loading="lazy"></button>` : ""}
+              <h3>${esc(m.title)}</h3><p>${esc(m.text)}</p>
+              ${m.album ? `<a href="#/fotos/${esc(m.album)}">📷 Foto's</a>` : ""}
+            </div></div>`).join("")}
+          <div class="tl-item now"><div class="tl-date">Nu</div><div class="tl-body card">
+            <h3>${SCHEDULE ? esc(SCHEDULE.team.name) + " in de " + esc(SCHEDULE.team.division) : "Nog steeds aan het darten"}</h3>
+            <p>${SCHEDULE && nextMatch() ? `Volgende wedstrijd: ${esc(longDate(nextMatch().date))} tegen ${esc(nextMatch().opponent)}.` : "En nog lang niet klaar."}</p>
+            <a href="#/wedstrijden">Naar mijn wedstrijden →</a></div></div>
+        </div>
+      </section>`;
+  }
+
+  function afterTimeline() {
+    document.querySelectorAll(".tl-img").forEach((b) => b.addEventListener("click", () => lbOpen([{ id: b.dataset.img, caption: b.dataset.cap }], 0)));
+    const el = document.getElementById("cafe-map");
+    if (!el || !window.L) { if (el) el.innerHTML = `<p class="muted" style="padding:20px">De kaart kon niet worden geladen.</p>`; return; }
+    const map = L.map(el, { scrollWheelZoom: false }).setView([52.486, 4.645], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+    const markers = [];
+    const byPlace = {};  // cafe Sport appears twice in the story: one pin, two numbers
+    TIMELINE.cafes.forEach((c, i) => { if (c.lat != null) (byPlace[`${c.lat},${c.lng}`] ||= []).push(i); });
+    Object.values(byPlace).forEach((idx) => {
+      const c = TIMELINE.cafes[idx[0]];
+      const home = idx.some((i) => TIMELINE.cafes[i].home);
+      const icon = L.divIcon({ className: "map-pin" + (home ? " home" : ""), html: `<span>${idx.map((i) => i + 1).join("·")}</span>`, iconSize: [idx.length > 1 ? 44 : 30, 30] });
+      const marker = L.marker([c.lat, c.lng], { icon }).addTo(map).bindPopup(`<b>${esc(c.name.replace(" (weer)", ""))}</b><br>${esc(c.note)}`);
+      idx.forEach((i) => { markers[i] = marker; });
+    });
+    const group = L.featureGroup(markers.filter(Boolean));
+    if (markers.some(Boolean)) map.fitBounds(group.getBounds().pad(0.2));
+    document.querySelectorAll(".cafes li").forEach((li) => li.addEventListener("click", () => {
+      const m = markers[Number(li.dataset.i)];
+      if (m) { map.setView(m.getLatLng(), 15); m.openPopup(); }
+    }));
+  }
+
   function pageNotFound() {
     return `<div class="page-head"><h1>Niet gevonden</h1><p>Deze pagina bestaat niet. <a href="#/">Terug naar home</a>.</p></div>`;
   }
@@ -701,7 +1132,9 @@
   // ------------------------------------------------------------ router
   const ROUTES = {
     "": [pageHome, afterHome],
-    wedstrijden: [pageMatches],
+    wedstrijden: [pageMatches, afterMatches],
+    statistieken: [pageStats, afterStats],
+    tijdlijn: [pageTimeline, afterTimeline],
     live: [pageLive, afterLive],
     erelijst: [pagePrizes, afterPrizes],
     certificaten: [pageCertificates, afterCertificates],
@@ -735,7 +1168,7 @@
     });
     document.querySelector(".nav").classList.remove("open");
     document.querySelector(".menu-btn").setAttribute("aria-expanded", "false");
-    const titles = { "": "Darts", wedstrijden: "Mijn wedstrijden", live: "Darts live", erelijst: "Erelijst", certificaten: "Certificaten", fotos: "Foto's", knipsels: "Knipsels", over: "Over mij" };
+    const titles = { "": "Darts", wedstrijden: "Mijn wedstrijden", live: "Darts live", statistieken: "Statistieken", tijdlijn: "Tijdlijn", erelijst: "Erelijst", certificaten: "Certificaten", fotos: "Foto's", knipsels: "Knipsels", over: "Over mij" };
     document.title = `Jos Tiebosch · ${titles[section] || "Darts"}`;
     window.scrollTo(0, 0);
   }

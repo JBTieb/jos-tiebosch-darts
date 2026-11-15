@@ -1,8 +1,10 @@
 {
-  "_comment": "district 19 = Dartvereniging Kennemerland. team_id/player_id come from the Teambeheer URLs (t=... and l=...). Leave season empty to follow the current season automatically. Other Cafe Sport teams: Sport 1 = 6197, DC Sport 11 = 6278, Sport 10 = 8885.",
+  "_comment": "district 19 = Dartvereniging Kennemerland. team_id/player_id come from the Teambeheer URLs (t=... and l=...). Leave season empty to follow the current season automatically. club_team_ids = all Cafe Sport teams (Sport 1 = 6197, DC Sport 2.0 = 6279, DC Sport 11 = 6278, Sport 10 = 8885), used for the cup overview.",
   "district": 19,
   "season": "",
   "team_id": 6279,
   "player_id": 840958,
-  "player_name": "Jos Tiebosch"
+  "player_name": "Jos Tiebosch",
+  "club_team_ids": [6197, 6279, 6278, 8885],
+  "site_url": "https://jbtieb.github.io/jos-tiebosch-darts/"
 }

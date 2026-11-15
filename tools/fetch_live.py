@@ -41,6 +41,16 @@ def to_amsterdam(when_utc):
 
 def now_local():
     return to_amsterdam(dt.datetime.now(dt.timezone.utc))
+
+
+def local_to_utc(date_iso, hhmm):
+    """Dutch local date + time -> aware UTC datetime."""
+    naive = dt.datetime.fromisoformat(f"{date_iso}T{hhmm}")
+    guess = naive.replace(tzinfo=dt.timezone.utc) - dt.timedelta(hours=1)
+    offset = to_amsterdam(guess).utcoffset()
+    return (naive - offset).replace(tzinfo=dt.timezone.utc)
+
+
 UA = "Mozilla/5.0 (compatible; jos-tiebosch-darts-site/1.0; schedule for one team)"
 BASE = "https://feeds.teambeheer.nl"
 
@@ -66,6 +76,7 @@ class Tables(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.tables, self.stack = [], []
         self.cell = None
+        self.in_a = False
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -76,15 +87,20 @@ class Tables(HTMLParser):
         elif tag in ("td", "th") and self.stack:
             if not self.stack[-1]:  # some tables put <th> straight into <thead> without a <tr>
                 self.stack[-1].append([])
-            self.cell = {"text": "", "links": [], "labels": [], "title": a.get("title", "")}
+            self.cell = {"text": "", "links": [], "linkTexts": [], "labels": [], "title": a.get("title", "")}
         elif tag == "a" and self.cell is not None:
             self.cell["links"].append(a.get("href", ""))
+            self.cell["linkTexts"].append("")
+            self.in_a = True
         elif tag == "b" and self.cell is not None:
             self.cell["labels"].append(a.get("class", ""))
 
     def handle_endtag(self, tag):
+        if tag == "a":
+            self.in_a = False
         if tag in ("td", "th") and self.cell is not None and self.stack and self.stack[-1]:
             self.cell["text"] = clean(self.cell["text"])
+            self.cell["linkTexts"] = [clean(t) for t in self.cell["linkTexts"]]
             self.stack[-1][-1].append(self.cell)
             self.cell = None
         elif tag == "table" and self.stack:
@@ -93,6 +109,8 @@ class Tables(HTMLParser):
     def handle_data(self, data):
         if self.cell is not None:
             self.cell["text"] += data
+            if self.in_a and self.cell["linkTexts"]:
+                self.cell["linkTexts"][-1] += data
 
 
 def tables(page):
@@ -143,7 +161,7 @@ def parse_ical(text):
         when = dt.datetime.strptime(start, "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
         when = to_amsterdam(when)
         loc = fields.get("LOCATION", "").replace("\\,", ",").strip(" ,")
-        out[when.date().isoformat()] = {"time": when.strftime("%H:%M"), "location": loc}
+        out[when.date().isoformat()] = {"time": when.strftime("%H:%M"), "location": loc, "utc": start}
     return out
 
 
@@ -189,6 +207,7 @@ def fetch_schedule():
             "round": int(nr["text"] or 0),
             "date": date,
             "time": extra.get("time", ""),
+            "utc": extra.get("utc", ""),
             "home": home,
             "away": away,
             "isHome": is_home,
@@ -235,6 +254,16 @@ def fetch_schedule():
 
     player = fetch_player(d, season)
 
+    history = []
+    t = first_table(page, ["Seizoen", "Naam", "Pos."]) or first_table(page, ["Seizoen", "Naam", "Div."])
+    for row in (t or [])[1:]:
+        cells = [c["text"] for c in row]
+        if len(cells) >= 4:
+            history.append({"season": cells[0], "team": cells[1], "division": cells[2], "pos": cells[3]})
+
+    cup = safe(lambda: fetch_cup(d, season), {"matches": [], "rounds": []}, "cup")
+    agenda = safe(fetch_agenda, [], "agenda")
+
     return {
         "fetchedAt": now_local().isoformat(timespec="minutes"),
         "season": season,
@@ -245,8 +274,215 @@ def fetch_schedule():
         "players": players,
         "specials": specials,
         "player": player,
+        "teamHistory": history,
+        "cup": cup,
+        "agenda": agenda,
+        "icsUrl": CONFIG.get("site_url", "").rstrip("/") + "/data/wedstrijden.ics",
         "source": "Dartvereniging Kennemerland via Teambeheer",
     }
+
+
+def safe(fn, default, label):
+    try:
+        return fn()
+    except Exception as e:  # one failing extra must never break the schedule itself
+        print(f"{label} failed:", e)
+        return default
+
+
+# ---------------------------------------------------------------- cup (bekercompetitie)
+
+def fetch_cup(d, season):
+    """All cup matches of the club's teams this season (pools and rounds discovered via dartvk.nl)."""
+    club = set(CONFIG.get("club_team_ids", [])) | {CONFIG["team_id"]}
+    start = html.unescape(get("https://www.dartvk.nl/bekercompetitie/topklasse-bekercompetitie/"))
+    seeds = sorted(set(re.findall(r"bp=(b\d+)", start)))
+    seen, todo, rounds, matches, pools = set(), [(bp, "b1") for bp in seeds], [], [], {}
+    while todo:
+        bp, br = todo.pop(0)
+        if (bp, br) in seen:
+            continue
+        seen.add((bp, br))
+        page = get(f"{BASE}/web/beker?d={d}&s={season}&bp={bp}&br={br}")
+        pool = re.search(r"Bekerpoule:\s*([^<]+)<", page)
+        pools[bp] = clean(pool.group(1)) if pool else bp
+        for nbp, nbr in re.findall(r"bp=(b\d+)&(?:amp;)?br=(b\d+)", page):
+            if (nbp, nbr) not in seen:
+                todo.append((nbp, nbr))
+        rounds.append({"pool": pools[bp], "round": br})
+        t = first_table(page, ["Datum", "Thuisteam", "Uitteam", "Score"])
+        for row in (t or [])[1:]:
+            if len(row) < 5:
+                continue
+            ids = {id_from(c["links"][0], "t") for c in row[2:4] if c["links"]}
+            if not club & ids:
+                continue
+            matches.append({
+                "pool": pools[bp], "round": br, "date": nl_date(row[1]["text"]),
+                "home": row[2]["text"], "away": row[3]["text"], "score": row[4]["text"],
+                "ours": CONFIG["team_id"] in ids,
+                "url": f"{BASE}/web/beker?d={d}&s={season}&bp={bp}&br={br}",
+            })
+    matches.sort(key=lambda m: (m["date"] or "", m["home"]))
+    return {"matches": matches, "rounds": rounds}
+
+
+# ---------------------------------------------------------------- DVK agenda (rankings, tournaments)
+
+def fetch_agenda():
+    """Upcoming events from the dartvk.nl agenda (schema.org Event data in the page)."""
+    page = get("https://www.dartvk.nl/agenda/")
+    events = []
+    for block in re.findall(r'<script type="application/ld\+json">(.*?)</script>', page, re.S):
+        if not re.search(r'"@type":\s*"Event"', block):
+            continue
+        name = re.search(r'"name":\s*"([^"]+)"', block)
+        url = re.search(r'"url":\s*"([^"]+)"', block)
+        start = re.search(r'"startDate":\s*"(\d{4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{2})', block)
+        place = re.search(r'"location":\s*\{.*?"name":\s*"([^"]*)"', block, re.S)
+        if not (name and start):
+            continue
+        y, m, dd, hh, mm = start.groups()
+        events.append({
+            "title": clean(name.group(1)), "url": url.group(1) if url else "https://www.dartvk.nl/agenda/",
+            "date": f"{y}-{int(m):02d}-{int(dd):02d}", "time": f"{int(hh):02d}:{mm}",
+            "location": clean(place.group(1)) if place else "",
+        })
+    today = now_local().date().isoformat()
+    uniq = {(e["date"], e["title"]): e for e in events if e["date"] >= today}
+    return sorted(uniq.values(), key=lambda e: e["date"])[:20]
+
+
+# ---------------------------------------------------------------- player history (statistics)
+
+def parse_player_season(page, player_id):
+    """Matches with every single/pair game from the player's 'Uitgebreide weergave' table."""
+    t = first_table(page, ["Datum", "Thuisteam", "Uitteam", "Score", "180"])
+    matches, cur = [], None
+    for row in (t or [])[1:]:
+        first = row[0]["text"]
+        if (first.isdigit() or re.fullmatch(r"b\d+", first)) and len(row) >= 8:  # "b1".. = cup rounds
+            cur = {"date": nl_date(row[1]["text"]), "home": row[2]["text"], "away": row[3]["text"],
+                   "cup": first if first.startswith("b") else "",
+                   "score": row[4]["text"].strip(),
+                   "n180": int(row[7]["text"]) if row[7]["text"].isdigit() else 0,
+                   "finish": row[8]["text"] if len(row) > 8 else "",
+                   "sl": row[9]["text"] if len(row) > 9 else "",
+                   "side": None, "games": []}
+            matches.append(cur)
+        elif cur is not None and first == "" and len(row) >= 5:
+            result = ""
+            for cls in row[1]["labels"]:
+                result = ("W" if "label-color-green" in cls else "V" if "label-color-red" in cls
+                          else "G" if "label-color-gray" in cls else result)
+            homes = [(id_from(h, "l"), n) for h, n in zip(row[2]["links"], row[2]["linkTexts"])]
+            aways = [(id_from(h, "l"), n) for h, n in zip(row[3]["links"], row[3]["linkTexts"])]
+            mine_home = any(i == player_id for i, _ in homes)
+            us, them = (homes, aways) if mine_home else (aways, homes)
+            cur["side"] = "home" if mine_home else "away"
+            legs = row[4]["text"]
+            m = re.match(r"(\d+)-(\d+)", legs)
+            if m:
+                a, b = int(m.group(1)), int(m.group(2))
+                legs = f"{a}-{b}" if mine_home else f"{b}-{a}"  # always "ours-theirs"
+            cur["games"].append({
+                "type": "single" if len(us) == 1 else "pair", "result": result, "legs": legs,
+                "partners": [n for i, n in us if i != player_id], "opponents": [n for _, n in them],
+            })
+    for m in matches:
+        m["side"] = m["side"] or "home"
+        m["team"] = m["home"] if m["side"] == "home" else m["away"]
+        m["opponent"] = m["away"] if m["side"] == "home" else m["home"]
+        sm = re.match(r"(\d+)-(\d+)", m["score"])
+        if sm:
+            a, b = int(sm.group(1)), int(sm.group(2))
+            ours, theirs = (a, b) if m["side"] == "home" else (b, a)
+            m["teamScore"] = f"{ours}-{theirs}"
+            m["teamResult"] = "W" if ours > theirs else "V" if ours < theirs else "G"
+    return matches
+
+
+def fetch_history():
+    """Every season of the player on Teambeheer. Finished seasons are cached in data/stats.js."""
+    d, pid = CONFIG["district"], CONFIG["player_id"]
+    current = CONFIG.get("season") or current_season()
+    old = read_js(os.path.join(ROOT, "data", "stats.js")) or {}
+    cached = {s["season"]: s for s in old.get("seasons", [])}
+    first = get(f"{BASE}/web/speler?d={d}&l={pid}&s={current}")
+    found = set(re.findall(r"/web/speler\?d=\d+&(?:amp;)?l=\d+&(?:amp;)?s=(\d{2}-\d{2})", first))
+    found |= set(re.findall(r"[?&]s=(\d{2}-\d{2})", first))
+    seasons = sorted(found | {current}, reverse=True)
+    out = []
+    for s in seasons:
+        if s != current and s in cached and cached[s].get("matches"):
+            out.append(cached[s])
+            continue
+        page = first if s == current else get(f"{BASE}/web/speler?d={d}&l={pid}&s={s}")
+        matches = parse_player_season(page, pid)
+        if matches:
+            out.append({"season": s, "team": matches[-1]["team"], "matches": matches})
+    return {"fetchedAt": now_local().isoformat(timespec="minutes"), "playerId": pid,
+            "playerName": CONFIG.get("player_name", ""), "seasons": out}
+
+
+# ---------------------------------------------------------------- calendar subscription (.ics)
+
+def ics_escape(text):
+    return str(text).replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+
+
+def write_ics(schedule):
+    """data/wedstrijden.ics: a calendar people can subscribe to; it follows date changes automatically."""
+    team = schedule["team"]["name"]
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//jos-tiebosch-darts//NL", "CALSCALE:GREGORIAN",
+             "METHOD:PUBLISH", f"X-WR-CALNAME:Darten {ics_escape(team)}", "X-WR-TIMEZONE:Europe/Amsterdam",
+             "REFRESH-INTERVAL;VALUE=DURATION:PT6H", "X-PUBLISHED-TTL:PT6H"]
+
+    def event(uid, date, hhmm, utc, summary, location, url):
+        if utc:
+            start = dt.datetime.strptime(utc, "%Y%m%dT%H%M%SZ").replace(tzinfo=dt.timezone.utc)
+        else:
+            start = local_to_utc(date, hhmm or "20:00")
+        end = start + dt.timedelta(hours=3)
+        lines.extend([
+            "BEGIN:VEVENT", f"UID:{uid}@jos-tiebosch-darts", f"DTSTAMP:{stamp}",
+            f"DTSTART:{start:%Y%m%dT%H%M%SZ}", f"DTEND:{end:%Y%m%dT%H%M%SZ}",
+            f"SUMMARY:{ics_escape(summary)}", f"LOCATION:{ics_escape(location)}", f"URL:{url}",
+            "DESCRIPTION:" + ics_escape("Controleer bij twijfel altijd Teambeheer of dartvk.nl."),
+            "BEGIN:VALARM", "ACTION:DISPLAY", "TRIGGER:-PT2H", "DESCRIPTION:Over 2 uur darten", "END:VALARM",
+            "END:VEVENT"])
+
+    for m in schedule["matches"]:
+        if m.get("bye") or not m.get("date"):
+            continue
+        where = "thuis" if m["isHome"] else "uit"
+        event(f"{schedule['season']}-competitie-{m['round']}", m["date"], m.get("time"), m.get("utc"),
+              f"Darten: {m['home']} - {m['away']} ({where})", m.get("location", ""), schedule["team"]["url"])
+    for m in schedule.get("cup", {}).get("matches", []):
+        if m.get("ours") and m.get("date"):
+            uid = re.sub(r"[^a-z0-9]+", "-", f"{schedule['season']}-beker-{m['round']}-{m['home']}".lower())
+            event(uid, m["date"], "20:00", "", f"Beker: {m['home']} - {m['away']}", "", m["url"])
+    lines.append("END:VCALENDAR")
+
+    def fold(line):  # RFC 5545: lines longer than 75 octets continue on the next line after a space
+        out, cur = [], ""
+        for ch in line:
+            if len((cur + ch).encode("utf-8")) > (75 if not out else 74):
+                out.append(cur)
+                cur = ""
+            cur += ch
+        return "\r\n ".join(out + [cur])
+
+    body = "\r\n".join(fold(l) for l in lines) + "\r\n"
+    path = os.path.join(ROOT, "data", "wedstrijden.ics")
+    old = open(path, encoding="utf-8", newline="").read() if os.path.exists(path) else ""
+    if re.sub(r"DTSTAMP:\S+", "", old) == re.sub(r"DTSTAMP:\S+", "", body):
+        print("unchanged", path)
+        return
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(body)
+    print("wrote", path)
 
 
 def fetch_player(d, season):
@@ -369,10 +605,15 @@ def main():
     ok = True
     if not args or "--schedule" in args:
         try:
-            write_js("schedule.js", "SCHEDULE", fetch_schedule())
+            schedule = fetch_schedule()
+            write_js("schedule.js", "SCHEDULE", schedule)
+            write_ics(schedule)
         except Exception as e:
             ok = False
             print("schedule failed:", e)
+        stats = safe(fetch_history, None, "history")
+        if stats and stats["seasons"]:
+            write_js("stats.js", "STATS", stats, refresh_hours=24)
     if not args or "--news" in args:
         write_js("news.js", "NEWS", fetch_news())
     sys.exit(0 if ok else 1)
