@@ -147,7 +147,7 @@ ALBUMS = [
          intro="3e prijs in De Korenbeurs, Utrecht.",
          photos=[("KPN darten 2012 (6).jpg", ""), ("KPN darten 2012 (3).jpg", ""), ("KPN darten 2012.jpg", ""), ("KPN darten 2012 (5).jpg", "")]),
     dict(id="kpn-2013", title="KPN-kampioenschap 2013", year=2013, date="16 maart 2013", place=1, kpn=True,
-         intro="KPN-kampioen.",
+         intro="KPN-kampioen in De Korenbeurs, Utrecht.",
          photos=[("IMG_0059.jpg", ""), ("IMG_0090.jpg", ""), ("20130316_115104.jpg", ""), ("20130316_155635.jpg", ""),
                  ("IMG_0087.jpg", ""), ("IMG_0074.jpg", ""), ("20130316_120052.jpg", "Het scorebord")]),
     dict(id="bekers", title="De bekerkast", year=2015, date="in de loop der jaren",

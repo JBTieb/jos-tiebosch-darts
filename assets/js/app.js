@@ -390,7 +390,7 @@
       <input class="search" type="search" placeholder="Zoek, bijvoorbeeld Oliebollen of De Zien" aria-label="Zoeken in de erelijst">
       <p class="muted small" id="prize-count"></p>
       <div id="prize-list"></div>
-      <div class="notice">De oude website had een gat tussen 2012 en 2015, en prijzen van na mei 2022 staan er nog niet in. Die vullen we later aan.</div>`;
+      <div class="notice">Bijgewerkt tot en met augustus 2023, met de prijzenlijst die Jos zelf bijhoudt. Nieuwe prijzen komen er gewoon bij.</div>`;
   }
 
   function afterPrizes(query) {
@@ -980,7 +980,7 @@
           <div class="stat"><b>${Object.keys(venues).length}</b><span>verschillende plekken</span></div>
         </div>
         <div class="card"><h3>Prijzen per jaar</h3>${barChart(yearItems, { every: 4, values: false, height: 150 })}
-          <p class="muted small">Beste jaar: ${(() => { const [y, v] = Object.entries(years).sort((a, b) => b[1].n - a[1].n)[0]; return `${y} met ${v.n} prijzen`; })()}. Tussen 2012 en 2015 ontbreken gegevens.</p></div>
+          <p class="muted small">Beste jaar: ${(() => { const [y, v] = Object.entries(years).sort((a, b) => b[1].n - a[1].n)[0]; return `${y} met ${v.n} prijzen`; })()}.</p></div>
         <div class="grid grid-2" style="margin-top:18px;align-items:start">
           <div class="card"><h3>Meest gewonnen toernooien</h3>
             <table class="data"><thead><tr><th>Toernooi</th><th class="num">1e</th><th class="num">Prijzen</th></tr></thead>
@@ -1345,11 +1345,10 @@
         ${TAGS.filter(([k]) => tagCount(k)).map(([k, label]) => `<button class="chip" data-tag="${k}" aria-pressed="${AN.tag === k}">${label}<span class="n">${tagCount(k)}</span></button>`).join("")}
       </div>
       <div class="card"><h3>Prijzen per jaar</h3>
-        <p class="muted small"><span class="key" style="--c:${RAMP[0]}">1e</span> <span class="key" style="--c:${RAMP[1]}">2e</span> <span class="key" style="--c:${RAMP[2]}">3e</span> <span class="key" style="--c:${RAMP[3]}">lager</span> · tussen 2012 en 2015 ontbreken gegevens.</p>
+        <p class="muted small"><span class="key" style="--c:${RAMP[0]}">1e</span> <span class="key" style="--c:${RAMP[1]}">2e</span> <span class="key" style="--c:${RAMP[2]}">3e</span> <span class="key" style="--c:${RAMP[3]}">lager</span></p>
         ${vbars(yearItems, { every: 4, show: false })}</div>
       <div class="card" style="margin-top:18px"><h3>Prijzen opgeteld sinds ${y0}</h3>
-        ${list.length ? lineChart("cumprize", [{ name: "Alle prijzen", color: C1, values: cumVals }, { name: "Eerste prijzen", color: C2, values: cumFirst }], cumTips, { xLabels: yearsAxis.map((y, i) => ({ i, label: String(y) })).filter((t) => Number(t.label) % 5 === 0) }) : "<p>Geen prijzen.</p>"}
-        <p class="muted small">Tussen 2012 en 2015 ontbreken gegevens, daar loopt de lijn vlak.</p></div>
+        ${list.length ? lineChart("cumprize", [{ name: "Alle prijzen", color: C1, values: cumVals }, { name: "Eerste prijzen", color: C2, values: cumFirst }], cumTips, { xLabels: yearsAxis.map((y, i) => ({ i, label: String(y) })).filter((t) => Number(t.label) % 5 === 0) }) : "<p>Geen prijzen.</p>"}</div>
       <div class="grid grid-2" style="margin-top:18px">
         <div class="card"><h3>In welke maand</h3>${vbars(months)}</div>
         <div class="card"><h3>Op welke dag</h3>${vbars(days)}<p class="muted small">De meeste toernooien waren in het weekend.</p></div>

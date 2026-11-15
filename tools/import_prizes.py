@@ -1,5 +1,8 @@
 """One-time import of the prize list from the old site into data/prizes.js.
 
+Do not re-run it any more: data/prizes.js has since been merged with Jos's own
+spreadsheet "Behaalde prijzen.xls" (prizes up to August 2023), which this script does not know.
+
 After the import, data/prizes.js is the source of truth: add new prizes there
 by hand (one line per prize). Re-running this script overwrites that file.
 

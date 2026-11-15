@@ -1112,7 +1112,7 @@ window.MEDIA = {
    "date": "16 maart 2013",
    "place": 1,
    "kpn": true,
-   "intro": "KPN-kampioen.",
+   "intro": "KPN-kampioen in De Korenbeurs, Utrecht.",
    "photos": [
     {
      "id": "kpn-2013-01",
