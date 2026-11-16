@@ -17,6 +17,7 @@ No build step, no server code. Open `index.html` directly, or host the folder on
 | Team schedule, results, standings, team history, cup matches of the Café Sport teams | `feeds.teambeheer.nl` (public pages of Dartvereniging Kennemerland, the same ones dartvk.nl embeds) | `tools/fetch_live.py`, run by GitHub Actions; writes `data/schedule.js` |
 | Every match and single/pair game since 2017-18 (Statistieken page, 180 chart) | Teambeheer player pages, one per season | same script; writes `data/stats.js` (finished seasons are cached, only the current one is refetched) |
 | Division and DVK-wide rankings per season (Analyse page): singles, 180s, highest finishes, fastest legs, teams per division | Teambeheer `scorelijst-pk`, `scorelijst-bijzres` and `stand` pages | same script; writes `data/division.js` (~600 KB, loaded only on the Analyse page; finished seasons cached) |
+| Averages per tournament (DVK rankings since 2026, Open Kennemerland) | public dashboards on tournaments.dartscores.app (server-rendered page data only; their `/api` is disallowed in robots.txt) | same script; writes `data/dartscores.js` (checked tournaments cached, only new ones are opened) |
 | Calendar subscription | built from the schedule | same script; writes `data/wedstrijden.ics` (subscribe via `webcal://…/data/wedstrijden.ics`) |
 | DVK agenda (rankings, tournaments) | schema.org Event data on dartvk.nl/agenda | same script, inside `data/schedule.js` |
 | Timeline (cafés, milestones) | Jos's own story + the prize list | hand-written `data/timeline.js` |
@@ -40,6 +41,8 @@ python tools/fetch_live.py                 # refresh schedule + news locally
 python tools/build_media.py "D:/Website Jos Tiebosch"   # rebuild images from the old site
 python -m http.server 8094                 # preview at http://localhost:8094
 ```
+
+Merge a new version of his own spreadsheet: `pip install xlrd`, then `python tools/merge_prize_sheet.py "…/Behaalde prijzen.xls"` (adds new numbers, prints every change).
 
 Add a prize: append a line to `data/prizes.js`, e.g.
 `{"nr": null, "date": "2026-12-28", "place": 1, "venue": "Café Sport", "event": "Oliebollentoernooi", "tags": []},`

@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 from html.parser import HTMLParser
 
@@ -473,6 +474,80 @@ def fetch_division(team_history):
             "seasons": out}
 
 
+# ---------------------------------------------------------------- Dartscores (DVK rankings and other tournaments)
+
+DS = "https://tournaments.dartscores.app"
+
+
+def _next_data(page):
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', page, re.S)
+    return json.loads(m.group(1))["props"]["pageProps"] if m else {}
+
+
+def parse_dartscores_dashboard(page, me):
+    """Group standings (with averages) and finals from a public Dartscores dashboard; None if `me` did not play."""
+    pp = _next_data(page)
+    content = pp.get("initialContent") or {}
+    groups = content.get("standings") or []
+    rows = [dict(r, group=g.get("name", "")) for g in groups for r in g.get("rows", [])]
+    members = lambda r: [n.strip() for n in re.split(r"\s*[/&]\s*|\s+en\s+", r.get("team_name", ""))]
+    mine = next((r for r in rows if me in members(r)), None)  # pairs show as "Jos Tiebosch / Partner"
+    if not mine:
+        return None
+    metric = lambda r, k: next((m.get("value") for m in r.get("metrics", []) if m.get("key") == k), None)
+    averages = [metric(r, "average") for r in rows if metric(r, "average")]
+    group_rows = [r for r in rows if r["group"] == mine["group"]]
+    t = pp.get("initialTournamentData") or {}
+    finals = content.get("finals") or []
+    my_avg = metric(mine, "average")
+    return {
+        "name": t.get("name", ""),
+        "date": (t.get("start_time") or "")[:10],
+        "url": f"{DS}/tournaments/{t.get('dashboard_endpoint', '')}/dashboard",
+        "players": len(rows),
+        "partner": " & ".join(n for n in members(mine) if n != me),
+        "group": mine["group"], "groupSize": len(group_rows), "groupRank": mine.get("rank"),
+        "won": metric(mine, "won_games"), "played": mine.get("played_games"), "legDiff": metric(mine, "leg_difference"),
+        "avg": my_avg,
+        "fieldAvg": round(sum(averages) / len(averages), 2) if averages else None,
+        "avgRank": (1 + sum(1 for a in averages if my_avg is not None and a > my_avg)) if my_avg is not None else None,
+        "finals": [{"stage": f.get("stage_item_name"), "winner": f.get("winner_name"), "runnerUp": f.get("runner_up_name"),
+                    "score": f"{f.get('winner_score')}-{f.get('runner_up_score')}"} for f in finals],
+    }
+
+
+def fetch_dartscores():
+    """Finished public tournaments on Dartscores in which Jos played. Checked tournaments are cached,
+    so after the first run only new ones are opened. Only public pages are read (robots.txt disallows /api)."""
+    me = CONFIG.get("player_name", "")
+    old = read_js(os.path.join(ROOT, "data", "dartscores.js")) or {}
+    checked = set(old.get("checked", []))
+    events = {e["url"]: e for e in old.get("events", [])}
+    tournaments = []
+    for page_no in range(1, 30):
+        try:
+            pp = _next_data(get(f"{DS}/tournaments?page={page_no}"))
+        except urllib.error.HTTPError:
+            break
+        batch = pp.get("initialTournaments") or []
+        if not batch:
+            break
+        tournaments += batch
+    for t in tournaments:
+        if t.get("state") != "finished" or not t.get("dashboard_public") or t["id"] in checked:
+            continue
+        try:
+            result = parse_dartscores_dashboard(get(f"{DS}/tournaments/{t['dashboard_endpoint']}/dashboard"), me)
+        except Exception as e:
+            print("dartscores", t.get("dashboard_endpoint"), "failed:", e)
+            continue
+        checked.add(t["id"])
+        if result:
+            events[result["url"]] = result
+    return {"fetchedAt": now_local().isoformat(timespec="minutes"), "player": me,
+            "events": sorted(events.values(), key=lambda e: e["date"]), "checked": sorted(checked)}
+
+
 # ---------------------------------------------------------------- calendar subscription (.ics)
 
 def ics_escape(text):
@@ -666,6 +741,9 @@ def main():
         division = safe(lambda: fetch_division(history), None, "division")
         if division and division["seasons"]:
             write_js("division.js", "DIVISION", division, refresh_hours=24)
+        dartscores = safe(fetch_dartscores, None, "dartscores")
+        if dartscores:
+            write_js("dartscores.js", "DARTSCORES", dartscores, refresh_hours=24)
     if not args or "--news" in args:
         write_js("news.js", "NEWS", fetch_news())
     sys.exit(0 if ok else 1)

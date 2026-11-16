@@ -462,3 +462,6 @@ details.wsec[open] > summary::before { content: "－ "; }
   .flt { flex: 1 1 140px; }
   .vval { font-size: .6rem; }
 }
+.vcol.grp { flex-direction: row; align-items: flex-end; justify-content: center; gap: 2px; }
+.vcol.grp .vseg { flex: 1; position: relative; border-radius: 4px 4px 0 0; }
+.vcol.grp .vval { bottom: 100%; }

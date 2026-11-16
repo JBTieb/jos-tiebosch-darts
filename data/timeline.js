@@ -40,7 +40,8 @@ window.TIMELINE = {
     { date: "2013-03-16", title: "Achtste KPN-titel", text: "KPN-kampioen voor de achtste keer, in De Korenbeurs in Utrecht.", album: "kpn-2013", image: "kpn-2013-04" },
     { date: "2018-05-01", label: "2017-2018", title: "Eredivisie met Sport 2.0", text: "Het eerste seizoen dat Teambeheer bijhoudt: Sport 2.0 speelt in de Eredivisie van de DVK." },
     { date: "2019-12-28", title: "Negende Oliebollentoernooi", text: "Voor de negende keer winnaar van het Oliebollentoernooi in café Sport." },
-    { date: "2023-08-20", title: "Prijs nummer 249", text: "Winnaar van het Zomerranking-eindtoernooi in café Sport, de nieuwste prijs op zijn lijst." },
+    { date: "2026-04-18", title: "Open Kennemerland 2026", text: "3e plaats bij de koppels, samen met Dave van Geerenstein." },
+    { date: "2026-05-16", title: "Prijs nummer 254", text: "2e in de eindstand van de DVK-ranking topklasse 2025-2026, de nieuwste prijs op zijn lijst." },
     { date: "2026-05-01", label: "2025-2026", title: "23 keer 180", text: "Zijn hoogste aantal 180's in een competitieseizoen sinds 2001-2002 (voor zover bekend)." },
   ],
 };

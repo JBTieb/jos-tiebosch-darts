@@ -390,7 +390,7 @@
       <input class="search" type="search" placeholder="Zoek, bijvoorbeeld Oliebollen of De Zien" aria-label="Zoeken in de erelijst">
       <p class="muted small" id="prize-count"></p>
       <div id="prize-list"></div>
-      <div class="notice">Bijgewerkt tot en met augustus 2023, met de prijzenlijst die Jos zelf bijhoudt. Nieuwe prijzen komen er gewoon bij.</div>`;
+      <div class="notice">Bijgewerkt tot en met ${esc(PRIZES.length ? MONTHS[parseISO(PRIZES[PRIZES.length - 1].date).getMonth()] + " " + PRIZES[PRIZES.length - 1].date.slice(0, 4) : "")}, met de prijzenlijst die Jos zelf bijhoudt. Nieuwe prijzen komen er gewoon bij.</div>`;
   }
 
   function afterPrizes(query) {
@@ -1038,6 +1038,10 @@
     const total = (i) => (i.segs ? i.segs.reduce((s, x) => s + x.v, 0) : i.v);
     const top = max ?? Math.max(1, ...items.map(total));
     return `<div class="vbars" style="--n:${items.length};height:${height}px">${items.map((i) => {
+      if (i.bars) {  // grouped: bars side by side within one column
+        const groupTop = max ?? Math.max(1, ...items.flatMap((x) => (x.bars || []).map((b) => b.v)));
+        return `<div class="vcol grp" data-tip="${esc(i.tip || "")}">${i.bars.map((b) => `<div class="vseg" style="height:${(b.v / groupTop) * 100}%;background:${b.color}"><span class="vval">${esc(b.show ?? b.v)}</span></div>`).join("")}</div>`;
+      }
       const segs = i.segs || [{ v: i.v, color: i.color || CA, tip: i.tip }];
       return `<div class="vcol" data-tip="${esc(i.tip || segs.map((s) => s.tip).filter(Boolean).join("<br>") || `${i.label}: ${total(i)}`)}">
         ${show && total(i) ? `<span class="vval">${esc(i.show ?? total(i))}</span>` : ""}
@@ -1128,6 +1132,7 @@
       </div>
       <div id="an-body"></div>
       <section class="section" id="an-division"><h2>Jos tegenover de rest</h2><p class="loading">Ranglijsten laden…</p></section>
+      <section class="section" id="an-dartscores">${dartscoresSection()}</section>
       <section class="section" id="an-prizes"></section>`;
   }
 
@@ -1311,6 +1316,44 @@
           ${hbars(top180.map((r) => ({ label: `${r[0]} · ${r[1]}`, v: r[2], hi: r[0] === me, tip: `${r[0]} (${r[1]}): ${r[2]}× 180` })))}
           <p class="muted small">Jos staat in blauw.</p></div>`;
     });
+  }
+
+  // Tournaments scored on Dartscores (DVK rankings since 2026, Open Kennemerland): averages per event.
+  function dartscoresSection() {
+    const ds = window.DARTSCORES;
+    const ev = ds && ds.events ? ds.events : [];
+    if (!ev.length) return "";
+    const withAvg = ev.filter((e) => e.avg);
+    const best = withAvg.reduce((a, b) => (!a || b.avg > a.avg ? b : a), null);
+    const mean = withAvg.length ? withAvg.reduce((s, e) => s + e.avg, 0) / withAvg.length : 0;
+    const nl = (x) => (x == null ? "–" : String(x.toFixed ? x.toFixed(2) : x).replace(".", ","));
+    const shortName = (n) => n.replace(/ - /g, " · ").replace(/'(\d\d)\/'(\d\d)/, "$1/$2");
+    return `
+      <h2>Gemiddelden op toernooien</h2>
+      <p>Sinds 2026 worden de DVK-rankings en de Open Kennemerland gescoord met <a href="https://tournaments.dartscores.app/tournaments" target="_blank" rel="noopener">Dartscores</a>.
+        Daar staat ook het gemiddelde per drie darts van elke speler in de groepsfase. Nieuwe toernooien komen er vanzelf bij.</p>
+      <div class="stats">
+        <div class="stat"><b>${ev.length}</b><span>toernooien op Dartscores</span></div>
+        <div class="stat"><b>${nl(best?.avg)}</b><span>hoogste gemiddelde (${esc(best ? shortName(best.name) : "")})</span></div>
+        <div class="stat"><b>${nl(mean)}</b><span>gemiddeld over alle toernooien</span></div>
+        <div class="stat"><b>${withAvg.filter((e) => e.avg > e.fieldAvg).length}× van ${withAvg.length}</b><span>boven het gemiddelde van het veld</span></div>
+      </div>
+      <div class="card"><h3>Jos tegenover het veld</h3>
+        <p class="muted small"><span class="key" style="--c:${C1}">Jos</span> <span class="key" style="--c:${C2}">gemiddelde van alle deelnemers</span></p>
+        ${vbars(withAvg.map((e) => ({ label: `${e.date.slice(8, 10)}-${e.date.slice(5, 7)}`, bars: [
+          { v: e.avg, color: C1, show: nl(e.avg).replace(/,\d+$/, "") }, { v: e.fieldAvg || 0, color: C2, show: nl(e.fieldAvg).replace(/,\d+$/, "") }],
+          tip: `<b>${esc(shortName(e.name))}</b><br>Jos: ${nl(e.avg)} · veld: ${nl(e.fieldAvg)}<br>${e.avgRank}e van ${e.players} op gemiddelde` })), { height: 190 })}</div>
+      <div class="table-wrap" style="margin-top:18px"><table class="data">
+        <thead><tr><th>Datum</th><th>Toernooi</th><th>Groep</th><th class="num">Gemiddelde</th><th class="num">Veld</th><th>Plek op gemiddelde</th><th>Winnaar</th></tr></thead>
+        <tbody>${[...ev].reverse().map((e) => `<tr>
+          <td>${esc(shortDate(e.date))}</td>
+          <td><a href="${esc(e.url)}" target="_blank" rel="noopener" style="color:var(--text)"><b>${esc(shortName(e.name))}</b></a>${e.partner ? `<br><span class="muted small">met ${esc(e.partner)}</span>` : ""}</td>
+          <td>${e.groupRank ? `${e.groupRank}e van ${e.groupSize}` : "–"}${e.won != null ? `<br><span class="muted small">${e.won} van ${e.played} gewonnen</span>` : ""}</td>
+          <td class="num"><b>${nl(e.avg)}</b></td><td class="num">${nl(e.fieldAvg)}</td>
+          <td>${e.avgRank ? `<b>${e.avgRank}e</b> <span class="muted small">van ${e.players}</span>` : "–"}</td>
+          <td class="small">${(e.finals || []).map((f) => `${esc(f.stage.replace(/ finals?/i, ""))}: ${esc(f.winner)}`).join("<br>")}</td></tr>`).join("")}
+        </tbody></table></div>
+      <p class="muted small">Gemiddelden uit de groepsfase, zoals Dartscores ze toont. Hoe ver hij daarna in de A- of B-finales kwam, staat op de pagina van het toernooi zelf.</p>`;
   }
 
   function renderPrizeAnalysis() {

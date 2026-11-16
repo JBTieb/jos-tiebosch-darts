@@ -1,5 +1,5 @@
 // Erelijst van Jos Tiebosch. Een prijs per regel; nieuwe prijzen gewoon onderaan toevoegen.
-// Bron: de oude website en zijn eigen lijst 'Behaalde prijzen.xls' (bijgewerkt tot augustus 2023).
+// Bron: de oude website en zijn eigen lijst 'Behaalde prijzen.xls' (samengevoegd met tools/merge_prize_sheet.py).
 // place: 1 = eerste prijs. tags: gk, kpn, beker, kiwanis, ranking, club, koppel, buitenland.
 // album: id van een fotoalbum uit data/media.js (optioneel).
 window.PRIZES = [
@@ -252,4 +252,9 @@ window.PRIZES = [
   {"nr": 247, "date": "2023-03-25", "place": 1, "venue": "Jansheren", "event": "Verliezersronde Open Kennemerland met Johan Seton", "tags": ["koppel"]},
   {"nr": 248, "date": "2023-05-21", "place": 2, "venue": "Café Sport", "event": "DVK ranking topklasse eindstand", "tags": ["ranking"]},
   {"nr": 249, "date": "2023-08-20", "place": 1, "venue": "Café Sport", "event": "Zomerranking eindtoernooi", "tags": ["ranking"]},
+  {"nr": 250, "date": "2024-04-13", "place": 4, "venue": "Café Sport", "event": "Finaledag DVK ranking", "tags": ["ranking"]},
+  {"nr": 251, "date": "2024-09-21", "place": 3, "venue": "Café Sport", "event": "Zomerranking eindtoernooi", "tags": ["ranking"]},
+  {"nr": 252, "date": "2025-09-14", "place": 5, "venue": "Café Sport", "event": "Zomerranking eindtoernooi", "tags": ["ranking"]},
+  {"nr": 253, "date": "2026-04-18", "place": 3, "venue": "Jansheren", "event": "Open Kennemerland (koppel met Dave van Geerenstein)", "tags": ["koppel"]},
+  {"nr": 254, "date": "2026-05-16", "place": 2, "venue": "Café Sport", "event": "DVK ranking Topklasse eindstand", "tags": ["ranking"]},
 ];

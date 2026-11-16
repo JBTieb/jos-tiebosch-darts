@@ -35,6 +35,6 @@ jobs:
           fi
           git config user.name "schedule-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/schedule.js data/news.js data/stats.js data/division.js data/wedstrijden.ics
+          git add data/schedule.js data/news.js data/stats.js data/division.js data/dartscores.js data/wedstrijden.ics
           git commit -m "Update schedule, statistics and news"
           git push
