@@ -1424,7 +1424,7 @@
 
       <section class="section">
         <h2>Zijn cafés</h2>
-        <p class="muted">In de volgorde van zijn eigen verhaal. De pinnen op de kaart staan op straatniveau; alleen café Sport staat precies.</p>
+        <p class="muted">In de volgorde van zijn eigen verhaal, op hun echte adres. Alleen De Smidse staat ongeveer: ergens in de Brandsteeg. Klik op een café in de lijst om het op de kaart te zien; Old Fashion ligt in Wijk aan Zee.</p>
         <div class="grid grid-2" style="align-items:start">
           <div id="cafe-map" class="map"></div>
           <ol class="cafes">
@@ -1470,8 +1470,12 @@
       const marker = L.marker([c.lat, c.lng], { icon }).addTo(map).bindPopup(`<b>${esc(c.name.replace(" (weer)", ""))}</b><br>${esc(c.note)}`);
       idx.forEach((i) => { markers[i] = marker; });
     });
-    const group = L.featureGroup(markers.filter(Boolean));
-    if (markers.some(Boolean)) map.fitBounds(group.getBounds().pad(0.2));
+    // Start zoomed in on the cluster in Beverwijk: cafes far from the middle (Wijk aan Zee) would squash the pins together.
+    const placed = TIMELINE.cafes.filter((c) => c.lat != null);
+    const mid = (k) => [...placed.map((c) => c[k])].sort((a, b) => a - b)[Math.floor(placed.length / 2)];
+    const [mLat, mLng] = [mid("lat"), mid("lng")];
+    const near = placed.filter((c) => Math.hypot((c.lat - mLat) * 111, (c.lng - mLng) * 68) < 2.5);
+    if (near.length) map.fitBounds(L.latLngBounds(near.map((c) => [c.lat, c.lng])).pad(0.25));
     document.querySelectorAll(".cafes li").forEach((li) => li.addEventListener("click", () => {
       const m = markers[Number(li.dataset.i)];
       if (m) { map.setView(m.getLatLng(), 15); m.openPopup(); }

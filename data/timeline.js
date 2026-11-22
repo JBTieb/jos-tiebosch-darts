@@ -1,21 +1,21 @@
 // "40 jaar darten": the cafes from Jos's own story (in his order) and dated milestones.
-// Cafe coordinates are street level (looked up once via OpenStreetMap); exact buildings are unknown
-// except Cafe Sport. lat/lng null = location unknown, not shown on the map.
+// Cafe addresses from Jos himself (mail of 2026-11-22), looked up once via OpenStreetMap.
+// Only De Smidse is street level (Brandsteeg). lat/lng null = location unknown, not shown on the map.
 window.TIMELINE = {
   cafes: [
     { name: "Café De Smidse", note: "nu café Jan & Syl, Brandsteeg", lat: 52.47983, lng: 4.65582,
       text: "Hier begon het, rond 1983. In De Smidse speelde Jos zijn eerste toernooi." },
-    { name: "Café De Stapper", note: "Zeestraat", lat: 52.48250, lng: 4.64955,
+    { name: "Café De Stapper", note: "Zeestraat 47", lat: 52.48202, lng: 4.65311,
       text: "Geruime tijd gespeeld. Hier werd al een beetje duidelijk dat hij het spelletje best goed beheerste; de allereerste prijs (een 3e plaats) won hij hier in 1984." },
-    { name: "Scottish Piper Club", note: "Baanstraat", lat: 52.48498, lng: 4.65573,
+    { name: "Scottish Piper Club", note: "Baanstraat 53 C", lat: 52.48344, lng: 4.65525,
       text: "Een blauwe maandag, nadat De Stapper moest sluiten." },
     { name: "Café Sport", note: "Korte Kerkstraat 12", lat: 52.48756, lng: 4.66022,
       text: "Vele goede jaren volgden, met talloze toernooien in het eigen café: Oliebollen-, Aardbeien-, Snert- en Oranjetoernooien." },
-    { name: "Café De Schaker", note: "", lat: null, lng: null,
+    { name: "Café De Schaker", note: "Meerstraat 72 (bestaat niet meer)", lat: 52.48057, lng: 4.65825,
       text: "Na wat onenigheid wilde Jos stoppen met darten, maar bij De Schaker dachten ze daar anders over. Hij werd gevraagd om daar te komen spelen en maakte vereerd de overstap." },
-    { name: "Café Old Fashion", note: "Wijk aan Zee", lat: 52.49393, lng: 4.59376,
+    { name: "Café Old Fashion", note: "Julianaweg 26, Wijk aan Zee", lat: 52.49165, lng: 4.59360,
       text: "Na enkele jaren verhuisde het team naar Wijk aan Zee. Maar aan alles komt een eind, ook aan Old Fashion." },
-    { name: "Café De Wijkermolen", note: "aan de Schans", lat: 52.48209, lng: 4.66285,
+    { name: "Café De Wijkermolen", note: "Schans 10", lat: 52.48375, lng: 4.66192,
       text: "De volgende speelgelegenheid, in hartje Beverwijk. In 2003 won Jos hier het Kennemerlands Dartskampioenschap." },
     { name: "Café Sport (weer)", note: "Korte Kerkstraat 12", lat: 52.48756, lng: 4.66022, home: true,
       text: "Terug in café Sport, waar hij nog steeds met veel plezier speelt: eerst met Sport 2.0, nu met DC Sport 2.0 in de Eredivisie." },
